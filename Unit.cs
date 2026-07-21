@@ -1,14 +1,16 @@
 using Godot;
 
-public partial class Unit : RigidBody3D
+public partial class Unit : Node3D
 {
 	private const string UnitsGroup = "units";
 	private const float ArriveDistance = 0.15f;
 
 	[Export] public float MoveSpeed { get; set; } = 8.0f;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
+	[Export] public NodePath NavigationAgentPath { get; set; } = "NavigationAgent3D";
 
 	private MeshInstance3D _mesh;
+	private NavigationAgent3D _navigationAgent;
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
 	private Vector3 _targetPosition;
@@ -22,6 +24,21 @@ public partial class Unit : RigidBody3D
 		AddToGroup(UnitsGroup);
 
 		_mesh = GetNodeOrNull<MeshInstance3D>(MeshPath);
+		_navigationAgent = GetNodeOrNull<NavigationAgent3D>(NavigationAgentPath);
+		if (_navigationAgent == null)
+		{
+			_navigationAgent = new NavigationAgent3D
+			{
+				Name = "NavigationAgent3D",
+			};
+			AddChild(_navigationAgent);
+		}
+
+		_navigationAgent.PathDesiredDistance = ArriveDistance;
+		_navigationAgent.TargetDesiredDistance = ArriveDistance;
+		_navigationAgent.AvoidanceEnabled = false;
+		_navigationAgent.MaxSpeed = MoveSpeed;
+
 		_defaultMaterialOverride = _mesh?.MaterialOverride;
 		_selectedMaterial = new StandardMaterial3D
 		{
@@ -30,7 +47,6 @@ public partial class Unit : RigidBody3D
 			Emission = new Color(1.0f, 0.65f, 0.05f),
 		};
 
-		LockRotation = true;
 		_targetPosition = GlobalPosition;
 	}
 
@@ -41,7 +57,7 @@ public partial class Unit : RigidBody3D
 			return;
 		}
 
-		Vector3 toTarget = GetFlatDirectionToTarget();
+		Vector3 toTarget = GetFlatDirectionTo(_targetPosition);
 
 		if (HasArrived(toTarget))
 		{
@@ -49,14 +65,25 @@ public partial class Unit : RigidBody3D
 			return;
 		}
 
-		MoveTowardTarget(toTarget);
+		MoveTowardTarget(GetNextMovePosition(), delta);
 	}
 
-	private Vector3 GetFlatDirectionToTarget()
+	private Vector3 GetNextMovePosition()
+	{
+		if (_navigationAgent.IsNavigationFinished())
+		{
+			return _targetPosition;
+		}
+
+		Vector3 nextPathPosition = _navigationAgent.GetNextPathPosition();
+		return HasArrived(GetFlatDirectionTo(nextPathPosition)) ? _targetPosition : nextPathPosition;
+	}
+
+	private Vector3 GetFlatDirectionTo(Vector3 worldPosition)
 	{
 		Vector3 currentPosition = GlobalPosition;
 		Vector3 flatCurrentPosition = new(currentPosition.X, 0.0f, currentPosition.Z);
-		Vector3 flatTargetPosition = new(_targetPosition.X, 0.0f, _targetPosition.Z);
+		Vector3 flatTargetPosition = new(worldPosition.X, 0.0f, worldPosition.Z);
 
 		return flatTargetPosition - flatCurrentPosition;
 	}
@@ -69,14 +96,21 @@ public partial class Unit : RigidBody3D
 	private void StopMoving()
 	{
 		_hasTarget = false;
-		LinearVelocity = new Vector3(0.0f, LinearVelocity.Y, 0.0f);
 	}
 
-	private void MoveTowardTarget(Vector3 toTarget)
+	private void MoveTowardTarget(Vector3 nextPathPosition, double delta)
 	{
+		Vector3 toTarget = GetFlatDirectionTo(nextPathPosition);
+		float distanceThisFrame = MoveSpeed * (float)delta;
+
+		if (toTarget.Length() <= distanceThisFrame)
+		{
+			GlobalPosition = new Vector3(nextPathPosition.X, GlobalPosition.Y, nextPathPosition.Z);
+			return;
+		}
+
 		Vector3 direction = toTarget.Normalized();
-		LinearVelocity = new Vector3(direction.X * MoveSpeed, LinearVelocity.Y, direction.Z * MoveSpeed);
-		Sleeping = false;
+		GlobalPosition += new Vector3(direction.X, 0.0f, direction.Z) * distanceThisFrame;
 	}
 
 	public void SetSelected(bool selected)
@@ -95,6 +129,6 @@ public partial class Unit : RigidBody3D
 	{
 		_targetPosition = new Vector3(worldPosition.X, GlobalPosition.Y, worldPosition.Z);
 		_hasTarget = true;
-		Sleeping = false;
+		_navigationAgent.TargetPosition = _targetPosition;
 	}
 }

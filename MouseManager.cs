@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public partial class MouseManager : Node
 {
 	private const float DragThreshold = 8.0f;
-	private const float RayLength = 1000.0f;
+	private const float UnitPickRadius = 24.0f;
 
 	private readonly List<Unit> _selectedUnits = new();
 	private CanvasLayer _selectionOverlay;
@@ -93,13 +93,7 @@ public partial class MouseManager : Node
 
 	private void HandleSingleClick(Vector2 screenPosition)
 	{
-		if (!TryRaycast(screenPosition, out RaycastHit hit))
-		{
-			ClearSelection();
-			return;
-		}
-
-		Unit unit = GetUnitFromCollider(hit.Collider);
+		Unit unit = GetUnitAtScreenPosition(screenPosition);
 		if (unit != null)
 		{
 			if (IsOnlySelectedUnit(unit))
@@ -113,6 +107,34 @@ public partial class MouseManager : Node
 		}
 
 		ClearSelection();
+	}
+
+	private Unit GetUnitAtScreenPosition(Vector2 screenPosition)
+	{
+		Camera3D camera = GetViewport().GetCamera3D();
+		if (camera == null)
+		{
+			return null;
+		}
+
+		Unit closestUnit = null;
+		float closestDistance = UnitPickRadius;
+		foreach (Unit unit in GetUnits())
+		{
+			if (camera.IsPositionBehind(unit.GlobalPosition))
+			{
+				continue;
+			}
+
+			float distance = screenPosition.DistanceTo(camera.UnprojectPosition(unit.GlobalPosition));
+			if (distance <= closestDistance)
+			{
+				closestDistance = distance;
+				closestUnit = unit;
+			}
+		}
+
+		return closestUnit;
 	}
 
 	private bool IsOnlySelectedUnit(Unit unit)
@@ -172,15 +194,12 @@ public partial class MouseManager : Node
 
 	private void TryMoveSelectedUnits(Vector2 screenPosition)
 	{
-		if (_selectedUnits.Count == 0 || !TryRaycast(screenPosition, out RaycastHit hit, GetUnitExcludes()))
+		if (_selectedUnits.Count == 0 || !TryGetNavigationTarget(screenPosition, out Vector3 targetPosition))
 		{
 			return;
 		}
 
-		if (IsGround(hit.Collider))
-		{
-			MoveSelectedUnitsTo(hit.Position);
-		}
+		MoveSelectedUnitsTo(targetPosition);
 	}
 
 	private void MoveSelectedUnitsTo(Vector3 targetPosition)
@@ -216,25 +235,22 @@ public partial class MouseManager : Node
 		}
 	}
 
-	private Godot.Collections.Array<Rid> GetUnitExcludes()
+	private bool TryGetNavigationTarget(Vector2 screenPosition, out Vector3 targetPosition)
 	{
-		Godot.Collections.Array<Rid> excludes = new();
-		foreach (Unit unit in GetUnits())
+		targetPosition = default;
+
+		if (!TryProjectGroundPosition(screenPosition, out Vector3 groundPosition))
 		{
-			excludes.Add(unit.GetRid());
+			return false;
 		}
 
-		return excludes;
+		targetPosition = GetClosestNavigationPoint(groundPosition);
+		return true;
 	}
 
-	private bool TryRaycast(Vector2 screenPosition, out RaycastHit hit)
+	private bool TryProjectGroundPosition(Vector2 screenPosition, out Vector3 groundPosition)
 	{
-		return TryRaycast(screenPosition, out hit, null);
-	}
-
-	private bool TryRaycast(Vector2 screenPosition, out RaycastHit hit, Godot.Collections.Array<Rid> excludes)
-	{
-		hit = default;
+		groundPosition = default;
 
 		Camera3D camera = GetViewport().GetCamera3D();
 		if (camera == null)
@@ -243,74 +259,48 @@ public partial class MouseManager : Node
 		}
 
 		Vector3 rayOrigin = camera.ProjectRayOrigin(screenPosition);
-		Vector3 rayEnd = rayOrigin + camera.ProjectRayNormal(screenPosition) * RayLength;
-		PhysicsRayQueryParameters3D query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
-		query.CollideWithBodies = true;
-		query.CollideWithAreas = false;
-
-		if (excludes != null)
-		{
-			query.Exclude = excludes;
-		}
-
-		Godot.Collections.Dictionary result = camera.GetWorld3D().DirectSpaceState.IntersectRay(query);
-		if (result.Count == 0)
+		Vector3 rayDirection = camera.ProjectRayNormal(screenPosition);
+		if (Mathf.IsZeroApprox(rayDirection.Y))
 		{
 			return false;
 		}
 
-		Node collider = result["collider"].AsGodotObject() as Node;
-		if (collider == null)
+		float distance = (GetGroundHeight() - rayOrigin.Y) / rayDirection.Y;
+		if (distance < 0.0f)
 		{
 			return false;
 		}
 
-		hit = new RaycastHit(collider, result["position"].AsVector3());
+		groundPosition = rayOrigin + rayDirection * distance;
 		return true;
 	}
 
-	private Unit GetUnitFromCollider(Node collider)
+	private Vector3 GetClosestNavigationPoint(Vector3 worldPosition)
 	{
-		Node current = collider;
-		while (current != null)
+		Camera3D camera = GetViewport().GetCamera3D();
+		if (camera == null)
 		{
-			if (current is Unit unit)
-			{
-				return unit;
-			}
-
-			current = current.GetParent();
+			return worldPosition;
 		}
 
-		return null;
+		Rid navigationMap = camera.GetWorld3D().NavigationMap;
+		if (!NavigationServer3D.MapGetClosestPointOwner(navigationMap, worldPosition).IsValid)
+		{
+			return worldPosition;
+		}
+
+		return NavigationServer3D.MapGetClosestPoint(navigationMap, worldPosition);
 	}
 
-	private bool IsGround(Node node)
+	private float GetGroundHeight()
 	{
-		Node ground = GetGround();
-		return ground != null && IsNodeOrChildOf(node, ground);
+		return GetGround() is Node3D ground ? ground.GlobalPosition.Y : 0.0f;
 	}
 
 	private Node GetGround()
 	{
 		Node currentScene = GetTree().CurrentScene;
 		return currentScene?.GetNodeOrNull("%Ground") ?? currentScene?.GetNodeOrNull("Ground");
-	}
-
-	private static bool IsNodeOrChildOf(Node node, Node parent)
-	{
-		Node current = node;
-		while (current != null)
-		{
-			if (current == parent)
-			{
-				return true;
-			}
-
-			current = current.GetParent();
-		}
-
-		return false;
 	}
 
 	private bool IsBoxSelection()
@@ -343,15 +333,4 @@ public partial class MouseManager : Node
 		_selectionBox.Size = rect.Size;
 	}
 
-	private readonly struct RaycastHit
-	{
-		public RaycastHit(Node collider, Vector3 position)
-		{
-			Collider = collider;
-			Position = position;
-		}
-
-		public Node Collider { get; }
-		public Vector3 Position { get; }
-	}
 }
