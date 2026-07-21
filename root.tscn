@@ -1,6 +1,8 @@
 [gd_scene format=3 uid="uid://e1vc37ls2o05"]
 
 [ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Unit.cs" id="1_pq8q7"]
+[ext_resource type="Script" path="res://SimulationManager.cs" id="2_4wlun"]
+[ext_resource type="Script" path="res://LockstepNetwork.cs" id="3_lb64g"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_7522t"]
 
@@ -16,6 +18,12 @@ vertices = PackedVector3Array(-50, 0, -50, -50, 0, 50, 50, 0, 50, 50, 0, -50)
 polygons = [PackedInt32Array(0, 1, 2, 3)]
 
 [node name="Root" type="Node3D" unique_id=92189941]
+
+[node name="SimulationManager" type="Node" parent="."]
+script = ExtResource("2_4wlun")
+
+[node name="LockstepNetwork" type="Node" parent="."]
+script = ExtResource("3_lb64g")
 
 [node name="Unit" type="Node3D" parent="." unique_id=1287906578]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4739695, 0, 5.6781483)

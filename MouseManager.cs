@@ -204,24 +204,21 @@ public partial class MouseManager : Node
 
 	private void MoveSelectedUnitsTo(Vector3 targetPosition)
 	{
-		if (_selectedUnits.Count == 0)
+		SimulationManager simulationManager = GetSimulationManager();
+		if (simulationManager == null)
 		{
+			GD.PushWarning("SimulationManager was not found; move command was not submitted.");
 			return;
 		}
 
-		Vector3 center = Vector3.Zero;
-		foreach (Unit unit in _selectedUnits)
-		{
-			center += unit.GlobalPosition;
-		}
-		center /= _selectedUnits.Count;
+		simulationManager.SubmitMoveCommand(_selectedUnits, targetPosition);
+	}
 
-		foreach (Unit unit in _selectedUnits)
-		{
-			Vector3 offset = unit.GlobalPosition - center;
-			offset.Y = 0.0f;
-			unit.MoveTo(targetPosition + offset);
-		}
+	private SimulationManager GetSimulationManager()
+	{
+		Node currentScene = GetTree().CurrentScene;
+		return currentScene?.GetNodeOrNull<SimulationManager>("SimulationManager")
+			?? GetTree().Root.GetNodeOrNull<SimulationManager>("SimulationManager");
 	}
 
 	private IEnumerable<Unit> GetUnits()

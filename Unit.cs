@@ -2,9 +2,10 @@ using Godot;
 
 public partial class Unit : Node3D
 {
-	private const string UnitsGroup = "units";
+	public const string UnitsGroup = "units";
 	private const float ArriveDistance = 0.15f;
 
+	[Export] public int UnitId { get; set; } = 1;
 	[Export] public float MoveSpeed { get; set; } = 8.0f;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 	[Export] public NodePath NavigationAgentPath { get; set; } = "NavigationAgent3D";
@@ -50,7 +51,7 @@ public partial class Unit : Node3D
 		_targetPosition = GlobalPosition;
 	}
 
-	public override void _PhysicsProcess(double delta)
+	public void SimulateTick(float tickDelta)
 	{
 		if (!_hasTarget)
 		{
@@ -65,7 +66,7 @@ public partial class Unit : Node3D
 			return;
 		}
 
-		MoveTowardTarget(GetNextMovePosition(), delta);
+		MoveTowardTarget(GetNextMovePosition(), tickDelta);
 	}
 
 	private Vector3 GetNextMovePosition()
@@ -98,10 +99,10 @@ public partial class Unit : Node3D
 		_hasTarget = false;
 	}
 
-	private void MoveTowardTarget(Vector3 nextPathPosition, double delta)
+	private void MoveTowardTarget(Vector3 nextPathPosition, float tickDelta)
 	{
 		Vector3 toTarget = GetFlatDirectionTo(nextPathPosition);
-		float distanceThisFrame = MoveSpeed * (float)delta;
+		float distanceThisFrame = MoveSpeed * tickDelta;
 
 		if (toTarget.Length() <= distanceThisFrame)
 		{
