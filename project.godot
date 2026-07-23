@@ -17,7 +17,8 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-MouseManager="*uid://ceei8ab6swik3"
+NetworkManager="*uid://ckrtc6vdmjqsb"
+PlayerManager="*uid://caxvdnlxg6qjd"
 
 [display]
 
