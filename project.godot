@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 NetworkManager="*uid://ckrtc6vdmjqsb"
 PlayerManager="*uid://caxvdnlxg6qjd"
+Signals="*uid://ccvn74744eawh"
 
 [display]
 

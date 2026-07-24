@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://lioanar2vkoj"]
+
+[ext_resource type="Script" uid="uid://fh8n6smlxeut" path="res://Lobby.cs" id="1_bpe3w"]
+
+[node name="Lobby" type="Control" unique_id=1602239428]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_bpe3w")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=498047005]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PlayerListCtr" type="VBoxContainer" parent="PanelContainer" unique_id=54002678]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PlayerLabel" type="Label" parent="PanelContainer/PlayerListCtr" unique_id=1822746007]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
