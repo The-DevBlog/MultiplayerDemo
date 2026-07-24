@@ -39,7 +39,7 @@ public partial class NetworkManager : Node
         int peerID = Multiplayer.GetUniqueId();
 
         var playerManager = GetPlayerManager();
-        playerManager.AddPlayer(1, peerID, "Player 1 Host", 1);
+        playerManager.AddPlayer(peerID);
 
         return true;
     }
@@ -68,7 +68,7 @@ public partial class NetworkManager : Node
         int peerID = Multiplayer.GetUniqueId();
 
         var playerManager = GetPlayerManager();
-        playerManager.RpcId(1, nameof(playerManager.AddPlayer), 2, peerID, "Player 2 Client", 2);
+        playerManager.RpcId(1, nameof(playerManager.AddPlayer), peerID);
 
         GD.Print("Client successfully connected");
     }

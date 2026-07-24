@@ -50,9 +50,7 @@ public partial class Lobby : Control
 			Label playerLabel = _playerLabel.Duplicate() as Label;
 			playerLabel.Visible = true;
 
-			string name = player.Value.PlayerName;
-			int team = player.Value.Team;
-			playerLabel.Text = $"{name} | Team {team}";
+			playerLabel.Text = $"PeerID: {player.Value.PeerID}";
 
 			_playerListCtr.AddChild(playerLabel);
 		}

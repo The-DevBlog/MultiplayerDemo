@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using Godot;
+using Godot.Collections;
 
 public partial class LockstepManager : Node
 {
-	private Dictionary<int, List<MoveCommand>> _moveCommands = new();
-	private Dictionary<int, Unit> _units = new();
+	private System.Collections.Generic.Dictionary<int, List<MoveCommand>> _moveCommands = new();
+	private System.Collections.Generic.Dictionary<int, Unit> _units = new();
 	private int _currentTick = 0;
 	private int _tickRate = 30;
 	private double _tickDuration;
@@ -36,10 +37,30 @@ public partial class LockstepManager : Node
 		}
 	}
 
-	public void RequestMove(List<int> unitIDs, Vector2I position)
+	public void RequestMove(Array<int> unitIDs, Vector2I position)
 	{
-		int peerID = Multiplayer.GetUniqueId();
+		if (Multiplayer.IsServer())
+		{
+			int peerID = Multiplayer.GetUniqueId();
+			RequestMoveServer(peerID, unitIDs, position);
+		}
+		else
+		{
+			int peerID = Multiplayer.GetRemoteSenderId();
+			RpcId(1, nameof(RequestMoveServer), peerID, unitIDs, position);
+		}
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	private void RequestMoveServer(int peerID, Array<int> unitIDs, Vector2I position)
+	{
 		int targetTick = _currentTick + _commandDelay;
+		Rpc(nameof(ReceiveMoveCommand), peerID, unitIDs, position, targetTick);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
+	private void ReceiveMoveCommand(int peerID, Array<int> unitIDs, Vector2I position, int targetTick)
+	{
 		MoveCommand command = new MoveCommand(
 			peerID,
 			unitIDs,

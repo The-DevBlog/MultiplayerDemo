@@ -21,9 +21,9 @@ public partial class PlayerManager : Node
     }
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-    public void AddPlayer(int playerID, int peerID, string name, int team)
+    public void AddPlayer(int peerID)
     {
-        Player newPlayer = new Player(playerID, peerID, name, team);
+        Player newPlayer = new Player(peerID);
         ConnectedPlayers.Add(newPlayer.PeerID, newPlayer);
 
         var playerPacketList = new Array();
@@ -31,10 +31,7 @@ public partial class PlayerManager : Node
         {
             var tmpPlayer = new Dictionary
             {
-                {nameof(Player.PlayerID), player.PlayerID },
                 {nameof(Player.PeerID), player.PeerID},
-                {nameof(Player.PlayerName), player.PlayerName},
-                {nameof(Player.Team), player.Team}
             };
 
             playerPacketList.Add(tmpPlayer);
@@ -55,12 +52,9 @@ public partial class PlayerManager : Node
 
         foreach (Dictionary playerData in playerList)
         {
-            int playerID = (int)playerData[nameof(Player.PlayerID)];
             int peerID = (int)playerData[nameof(Player.PeerID)];
-            string playerName = (string)playerData[nameof(Player.PlayerName)];
-            int team = (int)playerData[nameof(Player.Team)];
 
-            Player player = new Player(playerID, peerID, playerName, team);
+            Player player = new Player(peerID);
             ConnectedPlayers.Add(peerID, player);
         }
 

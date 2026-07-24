@@ -1,4 +1,5 @@
 using Godot;
+using Godot.Collections;
 using System;
 using System.Collections.Generic;
 
@@ -223,7 +224,7 @@ public partial class MouseManager : Node
 		}
 		center /= _selectedUnits.Count;
 
-		var unitIDs = new List<int>();
+		var unitIDs = new Array<int>();
 		foreach (Unit unit in _selectedUnits)
 		{
 			// Vector3 offset = unit.GlobalPosition - center;
@@ -236,6 +237,8 @@ public partial class MouseManager : Node
 		int x = Mathf.RoundToInt(targetPosition.X);
 		int y = Mathf.RoundToInt(targetPosition.Z);
 		Vector2I newPos = new Vector2I(x, y);
+
+		// _lockstepManager.Rpc(nameof(_lockstepManager.RequestMove), unitIDs, newPos);
 		_lockstepManager.RequestMove(unitIDs, newPos);
 	}
 
