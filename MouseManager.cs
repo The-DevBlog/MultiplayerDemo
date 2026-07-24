@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class MouseManager : Node
@@ -13,8 +14,14 @@ public partial class MouseManager : Node
 	private Vector2 _dragCurrent;
 	private bool _isDragging;
 
+	private LockstepManager _lockstepManager;
+
 	public override void _Ready()
 	{
+		_lockstepManager = GetNode<LockstepManager>("%LockstepManager");
+		if (_lockstepManager == null)
+			GD.PrintErr("LockstepManager could not be found");
+
 		_selectionOverlay = new CanvasLayer
 		{
 			Layer = 100,
@@ -216,12 +223,20 @@ public partial class MouseManager : Node
 		}
 		center /= _selectedUnits.Count;
 
+		var unitIDs = new List<int>();
 		foreach (Unit unit in _selectedUnits)
 		{
-			Vector3 offset = unit.GlobalPosition - center;
-			offset.Y = 0.0f;
-			unit.MoveTo(targetPosition + offset);
+			// Vector3 offset = unit.GlobalPosition - center;
+			// offset.Y = 0.0f;
+
+			unitIDs.Add(unit.UnitID);
+			// unit.MoveTo(targetPosition + offset);
 		}
+
+		int x = Mathf.RoundToInt(targetPosition.X);
+		int y = Mathf.RoundToInt(targetPosition.Z);
+		Vector2I newPos = new Vector2I(x, y);
+		_lockstepManager.RequestMove(unitIDs, newPos);
 	}
 
 	private IEnumerable<Unit> GetUnits()

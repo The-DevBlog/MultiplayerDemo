@@ -5,6 +5,7 @@ public partial class Unit : Node3D
 	private const string UnitsGroup = "units";
 	private const float ArriveDistance = 0.15f;
 
+	[Export] public int UnitID { get; set; }
 	[Export] public float MoveSpeed { get; set; } = 8.0f;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 	[Export] public NodePath NavigationAgentPath { get; set; } = "NavigationAgent3D";

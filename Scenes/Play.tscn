@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Unit.cs" id="1_wcd63"]
 [ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://MouseManager.cs" id="2_1m0ic"]
+[ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://LockstepManager.cs" id="3_vlv1q"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_1m0ic"]
 
@@ -27,6 +28,7 @@ polygons = [PackedInt32Array(0, 1, 2, 3)]
 [node name="Unit" type="Node3D" parent="." unique_id=1211642025]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.043325, 0, 5.6781483)
 script = ExtResource("1_wcd63")
+UnitID = 1
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Unit" unique_id=264971555]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -41,6 +43,7 @@ max_speed = 8.0
 [node name="Unit2" type="Node3D" parent="." unique_id=854050498]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4739695, 0, 5.6781483)
 script = ExtResource("1_wcd63")
+UnitID = 2
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Unit2" unique_id=743972827]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -68,3 +71,7 @@ transform = Transform3D(0.61221963, 0.7475729, 0.2575304, 0, -0.32570428, 0.9454
 
 [node name="MouseManager" type="Node" parent="." unique_id=1466242488]
 script = ExtResource("2_1m0ic")
+
+[node name="LockstepManager" type="Node" parent="." unique_id=511126121]
+unique_name_in_owner = true
+script = ExtResource("3_vlv1q")
