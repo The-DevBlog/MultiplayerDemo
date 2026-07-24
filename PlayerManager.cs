@@ -41,10 +41,9 @@ public partial class PlayerManager : Node
         }
 
         Rpc(nameof(AddPlayerClients), playerPacketList);
-        Signals.Instance.EmitUpdateLobby();
     }
 
-    [Rpc(MultiplayerApi.RpcMode.Authority)]
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
     public void AddPlayerClients(Array playerList)
     {
         RefreshConnectedPlayers(playerList);

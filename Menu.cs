@@ -15,14 +15,10 @@ public partial class Menu : Control
 		JoinBtn = GetNode<Button>("%JoinBtn");
 
 		if (HostBtn == null)
-		{
 			GD.PushError("HostBtn not found");
-		}
 
 		if (JoinBtn == null)
-		{
 			GD.PushError("JoinBtn not found");
-		}
 
 		HostBtn.Pressed += OnHostBtnPressed;
 		JoinBtn.Pressed += OnJoinBtnPressed;

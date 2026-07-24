@@ -12,6 +12,7 @@ grow_vertical = 2
 script = ExtResource("1_bpe3w")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=498047005]
+custom_minimum_size = Vector2(500, 300)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -28,8 +29,18 @@ grow_vertical = 2
 [node name="PlayerListCtr" type="VBoxContainer" parent="PanelContainer" unique_id=54002678]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 
 [node name="PlayerLabel" type="Label" parent="PanelContainer/PlayerListCtr" unique_id=1822746007]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
+text = "Player 1"
+
+[node name="PlayBtn" type="Button" parent="PanelContainer" unique_id=542731964]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+text = "Play"
