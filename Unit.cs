@@ -133,7 +133,6 @@ public partial class Unit : Node3D
 
 	public void MoveTo(Vector3I worldPosition)
 	{
-		// _targetPosition = new Vector3I(worldPosition.X, GlobalPosition.Y, worldPosition.Z);
 		_targetPosition = worldPosition;
 		_hasTarget = true;
 		_navigationAgent.TargetPosition = _targetPosition;

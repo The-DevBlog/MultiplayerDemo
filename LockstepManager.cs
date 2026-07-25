@@ -5,7 +5,8 @@ using Godot.Collections;
 public partial class LockstepManager : Node
 {
 	private System.Collections.Generic.Dictionary<int, List<MoveCommand>> _moveCommands = new();
-	private System.Collections.Generic.Dictionary<int, Unit> _units = new();
+	private SortedDictionary<int, Unit> _units = new();
+	private System.Collections.Generic.Dictionary<int, System.Collections.Generic.Dictionary<int, int>> _hashes = new();
 	private int _currentTick = 0;
 	private int _tickRate = 30;
 	private int _desyncInterval;
@@ -132,10 +133,7 @@ public partial class LockstepManager : Node
 
 	private void RunTick()
 	{
-		if (_currentTick % _desyncInterval == 0)
-		{
-
-		}
+		DesyncCheck();
 
 		if (_moveCommands.ContainsKey(_currentTick))
 		{
@@ -143,13 +141,11 @@ public partial class LockstepManager : Node
 
 			foreach (var cmd in commands)
 			{
-				foreach (var ID in cmd.UnitIDs)
+				foreach (var id in cmd.UnitIDs)
 				{
-					if (_units.ContainsKey(ID))
+					if (_units.TryGetValue(id, out Unit unit))
 					{
-						Unit unit = _units[ID];
 						Vector3I newPosition = new Vector3I(cmd.Position.X, 0, cmd.Position.Y);
-
 						unit.MoveTo(newPosition);
 					}
 				}
@@ -159,5 +155,70 @@ public partial class LockstepManager : Node
 		}
 
 		_currentTick++;
+	}
+
+	private void DesyncCheck()
+	{
+		if (_currentTick % _desyncInterval != 0)
+			return;
+
+		int hash = 17;
+
+		unchecked
+		{
+			hash = hash * 31 + _currentTick;
+
+			foreach (Unit unit in _units.Values)
+			{
+				int x = Mathf.RoundToInt(unit.Position.X);
+				int y = Mathf.RoundToInt(unit.Position.Y);
+				int z = Mathf.RoundToInt(unit.Position.Z);
+
+				hash = hash * 31 + unit.UnitID;
+				hash = hash * 31 + x;
+				hash = hash * 31 + y;
+				hash = hash * 31 + z;
+			}
+		}
+
+		if (Multiplayer.IsServer())
+			RecordHash(Multiplayer.GetUniqueId(), _currentTick, hash);
+		else
+			RpcId(1, nameof(ReportHash), _currentTick, hash);
+
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	private void ReportHash(int tick, int hash)
+	{
+		int peerID = Multiplayer.GetRemoteSenderId();
+		RecordHash(peerID, tick, hash);
+	}
+
+	private void RecordHash(int peerID, int tick, int hash)
+	{
+		// GD.Print($"Player {peerID,10} | Tick {tick,6} | Hash {hash,12}");
+		if (!_hashes.ContainsKey(tick))
+		{
+			_hashes[tick] = new System.Collections.Generic.Dictionary<int, int>();
+		}
+
+		_hashes[tick][peerID] = hash;
+
+		// all peers have reported tick/hash. Begin hash comparison
+		var hashesForThisTick = _hashes[tick];
+		if (hashesForThisTick.Count == _playerManager.ConnectedPlayers.Count)
+		{
+			bool _isDesync = false;
+			int serverHash = hashesForThisTick[Multiplayer.GetUniqueId()];
+
+			foreach (var kv in hashesForThisTick)
+			{
+				if (kv.Value != serverHash)
+					_isDesync = true;
+			}
+
+			// GD.Print($"Desync Detected: {_isDesync}");
+		}
 	}
 }
