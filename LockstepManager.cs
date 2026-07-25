@@ -50,14 +50,27 @@ public partial class LockstepManager : Node
 	{
 		if (Multiplayer.IsServer())
 		{
-			int peerID = Multiplayer.GetUniqueId();
-			RequestMoveServer(peerID, unitIDs, position);
+			RequestMoveServer(unitIDs, position);
 		}
 		else
 		{
-			int peerID = Multiplayer.GetRemoteSenderId();
-			RpcId(1, nameof(RequestMoveServer), peerID, unitIDs, position);
+			RpcId(1, nameof(RequestMoveClient), unitIDs, position);
 		}
+	}
+
+	private void RequestMoveServer(Array<int> unitIDs, Vector2I position)
+	{
+		int peerID = Multiplayer.GetUniqueId();
+		int targetTick = _currentTick + _commandDelay;
+		Rpc(nameof(ReceiveMoveCommand), peerID, unitIDs, position, targetTick);
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	private void RequestMoveClient(Array<int> unitIDs, Vector2I position)
+	{
+		int peerID = Multiplayer.GetRemoteSenderId();
+		int targetTick = _currentTick + _commandDelay;
+		Rpc(nameof(ReceiveMoveCommand), peerID, unitIDs, position, targetTick);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true)]
@@ -90,13 +103,6 @@ public partial class LockstepManager : Node
 	private void StartSimulation()
 	{
 		_simulationRunning = true;
-	}
-
-	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
-	private void RequestMoveServer(int peerID, Array<int> unitIDs, Vector2I position)
-	{
-		int targetTick = _currentTick + _commandDelay;
-		Rpc(nameof(ReceiveMoveCommand), peerID, unitIDs, position, targetTick);
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
