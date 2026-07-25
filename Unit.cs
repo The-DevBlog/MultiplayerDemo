@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 public partial class Unit : Node3D
@@ -14,7 +15,7 @@ public partial class Unit : Node3D
 	private NavigationAgent3D _navigationAgent;
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
-	private Vector3 _targetPosition;
+	private Vector3I _targetPosition;
 	private bool _hasTarget;
 	private bool _isSelected;
 
@@ -48,7 +49,11 @@ public partial class Unit : Node3D
 			Emission = new Color(1.0f, 0.65f, 0.05f),
 		};
 
-		_targetPosition = GlobalPosition;
+		int x = Mathf.RoundToInt(GlobalPosition.X);
+		int y = Mathf.RoundToInt(GlobalPosition.Y);
+		int z = Mathf.RoundToInt(GlobalPosition.Z);
+
+		_targetPosition = new Vector3I(x, y, z);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -126,9 +131,10 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	public void MoveTo(Vector3 worldPosition)
+	public void MoveTo(Vector3I worldPosition)
 	{
-		_targetPosition = new Vector3(worldPosition.X, GlobalPosition.Y, worldPosition.Z);
+		// _targetPosition = new Vector3I(worldPosition.X, GlobalPosition.Y, worldPosition.Z);
+		_targetPosition = worldPosition;
 		_hasTarget = true;
 		_navigationAgent.TargetPosition = _targetPosition;
 	}

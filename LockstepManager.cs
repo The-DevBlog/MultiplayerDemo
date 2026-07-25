@@ -8,6 +8,7 @@ public partial class LockstepManager : Node
 	private System.Collections.Generic.Dictionary<int, Unit> _units = new();
 	private int _currentTick = 0;
 	private int _tickRate = 30;
+	private int _desyncInterval;
 	private double _tickDuration;
 	private double _timeAccumulator = 0;
 	private int _commandDelay = 3;
@@ -21,6 +22,7 @@ public partial class LockstepManager : Node
 		_playerManager = PlayerManager.Instance;
 
 		_tickDuration = 1.0 / _tickRate;
+		_desyncInterval = _tickRate * 3;
 
 		// load units dictionary
 		foreach (Node node in GetTree().GetNodesInGroup("units"))
@@ -130,6 +132,11 @@ public partial class LockstepManager : Node
 
 	private void RunTick()
 	{
+		if (_currentTick % _desyncInterval == 0)
+		{
+
+		}
+
 		if (_moveCommands.ContainsKey(_currentTick))
 		{
 			List<MoveCommand> commands = _moveCommands[_currentTick];
@@ -141,7 +148,7 @@ public partial class LockstepManager : Node
 					if (_units.ContainsKey(ID))
 					{
 						Unit unit = _units[ID];
-						Vector3 newPosition = new Vector3(cmd.Position.X, 0, cmd.Position.Y);
+						Vector3I newPosition = new Vector3I(cmd.Position.X, 0, cmd.Position.Y);
 
 						unit.MoveTo(newPosition);
 					}
