@@ -4,6 +4,7 @@ using Godot;
 public partial class Player : Node
 {
     public int PeerID { get; set; }
+    public bool IsReady { get; set; }
 
     public Player(int peerID)
     {

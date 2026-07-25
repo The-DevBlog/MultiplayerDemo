@@ -12,10 +12,14 @@ public partial class LockstepManager : Node
 	private double _timeAccumulator = 0;
 	private int _commandDelay = 3;
 	private NetworkManager _networkManager;
+	private PlayerManager _playerManager;
+	private bool _simulationRunning;
 
 	public override void _Ready()
 	{
 		_networkManager = NetworkManager.Instance;
+		_playerManager = PlayerManager.Instance;
+
 		_tickDuration = 1.0 / _tickRate;
 
 		// load units dictionary
@@ -24,10 +28,15 @@ public partial class LockstepManager : Node
 			if (node is Unit unit)
 				_units[unit.UnitID] = unit;
 		}
+
+		RpcId(1, nameof(NotifyReady), _playerManager.Player.PeerID);
 	}
 
 	public override void _Process(double delta)
 	{
+		if (!_simulationRunning)
+			return;
+
 		_timeAccumulator += delta;
 
 		while (_timeAccumulator >= _tickDuration)
@@ -49,6 +58,38 @@ public partial class LockstepManager : Node
 			int peerID = Multiplayer.GetRemoteSenderId();
 			RpcId(1, nameof(RequestMoveServer), peerID, unitIDs, position);
 		}
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true)]
+	private void NotifyReady(int peerID)
+	{
+		bool simulationReady = true;
+		foreach (var player in _playerManager.ConnectedPlayers.Values)
+		{
+			if (player.PeerID == peerID)
+			{
+				player.IsReady = true;
+				GD.Print($"Player {peerID} ready");
+			}
+
+			if (!player.IsReady)
+				simulationReady = false;
+		}
+
+		if (simulationReady)
+		{
+			var err = Rpc(nameof(StartSimulation));
+			if (err == Error.Ok)
+				GD.Print("Simulation Started");
+			else
+				GD.Print("Simulation failed to start");
+		}
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
+	private void StartSimulation()
+	{
+		_simulationRunning = true;
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]

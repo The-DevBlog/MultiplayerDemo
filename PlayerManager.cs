@@ -4,6 +4,7 @@ using Godot.Collections;
 public partial class PlayerManager : Node
 {
     public static PlayerManager Instance;
+    public Player Player { get; set; }
     public Dictionary<int, Player> ConnectedPlayers { get; set; }
 
     public override void _EnterTree()
@@ -38,6 +39,23 @@ public partial class PlayerManager : Node
         }
 
         Rpc(nameof(AddPlayerClients), playerPacketList);
+
+        if (peerID != Multiplayer.GetUniqueId())
+        {
+            RpcId(peerID, nameof(AssignPlayer), peerID);
+        }
+        else
+        {
+            Player = newPlayer;
+            GD.Print($"Player {peerID} conencted");
+        }
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority)]
+    private void AssignPlayer(int peerID)
+    {
+        Player = new Player(peerID);
+        GD.Print($"Player {peerID} conencted");
     }
 
     [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]

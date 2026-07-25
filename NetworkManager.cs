@@ -38,7 +38,7 @@ public partial class NetworkManager : Node
         Multiplayer.MultiplayerPeer = peer;
         int peerID = Multiplayer.GetUniqueId();
 
-        var playerManager = GetPlayerManager();
+        var playerManager = PlayerManager.Instance;
         playerManager.AddPlayer(peerID);
 
         return true;
@@ -58,39 +58,19 @@ public partial class NetworkManager : Node
         Multiplayer.MultiplayerPeer = peer;
     }
 
-    public void Disconnect()
-    {
-
-    }
-
     private void ConnectClient()
     {
         int peerID = Multiplayer.GetUniqueId();
 
-        var playerManager = GetPlayerManager();
-        playerManager.RpcId(1, nameof(playerManager.AddPlayer), peerID);
+        var playerManager = PlayerManager.Instance;
+        var err = playerManager.RpcId(1, nameof(playerManager.AddPlayer), peerID);
 
-        GD.Print("Client successfully connected");
+        if (err != Error.Ok)
+            GD.Print($"Player {peerID} failed to connect: {err}");
     }
 
     private void ClientConnectedFailed()
     {
         GD.PushError("Client failed to connect");
-    }
-
-    private PlayerManager GetPlayerManager()
-    {
-        var playerManager = PlayerManager.Instance;
-
-        if (playerManager != null)
-        {
-            return playerManager;
-        }
-        else
-        {
-            GD.PushError("GetPlayerManager() returned null");
-        }
-
-        return null;
     }
 }
