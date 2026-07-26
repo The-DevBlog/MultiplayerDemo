@@ -68,7 +68,7 @@ public partial class Unit : Node3D
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
 
-		GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
+		// GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
 	}
 
 	private void Move(double delta)
