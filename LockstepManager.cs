@@ -209,15 +209,17 @@ public partial class LockstepManager : Node
 		var hashesForThisTick = _hashes[tick];
 		if (hashesForThisTick.Count == _playerManager.ConnectedPlayers.Count)
 		{
-			bool _isDesync = false;
+			bool isDesync = false;
 			int serverHash = hashesForThisTick[Multiplayer.GetUniqueId()];
 
 			foreach (var kv in hashesForThisTick)
 			{
 				if (kv.Value != serverHash)
-					_isDesync = true;
+					isDesync = true;
 			}
 
+			if (isDesync)
+				GD.Print("DESYNC DETECTED");
 			// GD.Print($"Desync Detected: {_isDesync}");
 		}
 	}

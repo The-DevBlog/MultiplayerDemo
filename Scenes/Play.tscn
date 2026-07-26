@@ -1,16 +1,9 @@
 [gd_scene format=3 uid="uid://cly26136ynp7d"]
 
-[ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Unit.cs" id="1_wcd63"]
+[ext_resource type="PackedScene" uid="uid://pgtfmwkvel1a" path="res://Scenes/unit.tscn" id="1_vlv1q"]
 [ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://MouseManager.cs" id="2_1m0ic"]
 [ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://LockstepManager.cs" id="3_vlv1q"]
-
-[sub_resource type="BoxMesh" id="BoxMesh_1m0ic"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2peyt"]
-albedo_color = Color(1, 0, 0, 1)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gh5u4"]
-albedo_color = Color(0, 0, 1, 1)
+[ext_resource type="PackedScene" uid="uid://bpe1g352atpsm" path="res://CommandUI.tscn" id="4_nsvgp"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7522t"]
 albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
@@ -25,35 +18,24 @@ polygons = [PackedInt32Array(0, 1, 2, 3)]
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 
-[node name="Unit" type="Node3D" parent="." unique_id=1211642025]
+[node name="Unit" parent="." unique_id=1363236879 instance=ExtResource("1_vlv1q")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.043325, 0, 5.6781483)
-script = ExtResource("1_wcd63")
-UnitID = 1
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Unit" unique_id=264971555]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-mesh = SubResource("BoxMesh_1m0ic")
-surface_material_override/0 = SubResource("StandardMaterial3D_2peyt")
-
-[node name="NavigationAgent3D" type="NavigationAgent3D" parent="Unit" unique_id=291998416]
-path_desired_distance = 0.15
-target_desired_distance = 0.15
-max_speed = 8.0
-
-[node name="Unit2" type="Node3D" parent="." unique_id=854050498]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4739695, 0, 5.6781483)
-script = ExtResource("1_wcd63")
+[node name="Unit2" parent="." unique_id=2092125837 instance=ExtResource("1_vlv1q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.017878, 0, 8.992912)
 UnitID = 2
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Unit2" unique_id=743972827]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-mesh = SubResource("BoxMesh_1m0ic")
-surface_material_override/0 = SubResource("StandardMaterial3D_gh5u4")
+[node name="Unit3" parent="." unique_id=1624947468 instance=ExtResource("1_vlv1q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.841465, 0, 8.298105)
+UnitID = 3
 
-[node name="NavigationAgent3D" type="NavigationAgent3D" parent="Unit2" unique_id=1267554577]
-path_desired_distance = 0.15
-target_desired_distance = 0.15
-max_speed = 8.0
+[node name="Unit4" parent="." unique_id=828225403 instance=ExtResource("1_vlv1q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.770172, 0, 5.960453)
+UnitID = 4
+
+[node name="Unit5" parent="." unique_id=1139381942 instance=ExtResource("1_vlv1q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.134342, 0, 8.686705)
+UnitID = 5
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
 unique_name_in_owner = true
@@ -75,3 +57,5 @@ script = ExtResource("2_1m0ic")
 [node name="LockstepManager" type="Node" parent="." unique_id=511126121]
 unique_name_in_owner = true
 script = ExtResource("3_vlv1q")
+
+[node name="CommandUI" parent="." unique_id=1970721745 instance=ExtResource("4_nsvgp")]
