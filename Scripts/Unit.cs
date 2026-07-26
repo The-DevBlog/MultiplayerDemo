@@ -14,6 +14,9 @@ public partial class Unit : Node3D
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
 	private bool _isMoving;
+	private Vector3 _currentWaypoint;
+	private bool _hasWaypoint;
+	private bool _stopAfterWaypoint;
 
 	public bool IsSelected => _isSelected;
 	private bool _isSelected;
@@ -58,12 +61,14 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	public void MoveTo(Vector3 worldPos)
+	public void MoveToCell(Vector2I targetCellPos)
 	{
-		Vector2I targetCellPos = _navGrid.WorldToCell(worldPos);
-
 		_navGrid.BuildField(targetCellPos);
 		_isMoving = true;
+		_hasWaypoint = false;
+		_stopAfterWaypoint = false;
+
+		GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
 	}
 
 	private void Move(double delta)
@@ -71,39 +76,52 @@ public partial class Unit : Node3D
 		if (!_isMoving || _navGrid == null)
 			return;
 
-		Vector2I currentCellPos = _navGrid.WorldToCell(GlobalPosition);
-		Vector2I direction = _navGrid.GetDirection(currentCellPos);
-
-		if (direction == Vector2I.Zero)
+		if (!_hasWaypoint)
 		{
-			_isMoving = false;
+			Vector2I currentCellPos = _navGrid.WorldToCell(GlobalPosition);
+			Vector2I direction = _navGrid.GetDirection(currentCellPos);
+
+			if (direction == Vector2I.Zero)
+			{
+				_currentWaypoint = _navGrid.CellToWorld(currentCellPos);
+				_stopAfterWaypoint = true;
+			}
+			else
+			{
+				Vector2I nextCellPos = currentCellPos + direction;
+				_currentWaypoint = _navGrid.CellToWorld(nextCellPos);
+				_stopAfterWaypoint = false;
+			}
+
+			_hasWaypoint = true;
+		}
+
+		Vector2 currentFlatPos = new Vector2(GlobalPosition.X, GlobalPosition.Z);
+		Vector2 waypointFlatPos = new Vector2(_currentWaypoint.X, _currentWaypoint.Z);
+		Vector2 toWaypoint = waypointFlatPos - currentFlatPos;
+
+		float distanceThisFrame = Speed * (float)delta;
+
+		if (toWaypoint.Length() <= distanceThisFrame)
+		{
+			float y = GlobalPosition.Y;
+			GlobalPosition = new Vector3(_currentWaypoint.X, y, _currentWaypoint.Z);
+
+			_hasWaypoint = false;
+
+			if (_stopAfterWaypoint)
+				_isMoving = false;
+
 			return;
 		}
 
-		Vector2I nextCellPos = currentCellPos + direction;
-		Vector3 nextWorldPos = _navGrid.CellToWorld(nextCellPos);
+		Vector2 moveDirection = toWaypoint.Normalized();
+		Vector2 moveAmount = moveDirection * distanceThisFrame;
 
-		Vector2 currentFlatPos = new Vector2(GlobalPosition.X, GlobalPosition.Z);
-		Vector2 nextFlatPos = new Vector2(nextWorldPos.X, nextWorldPos.Z);
-
-		Vector2 toNext = nextFlatPos - currentFlatPos;
-		float distanceThisFrame = Speed * (float)delta;
-
-		if (toNext.Length() <= distanceThisFrame)
-		{
-			float y = GlobalPosition.Y;
-			GlobalPosition = new Vector3(nextWorldPos.X, y, nextWorldPos.Z);
-		}
-		else
-		{
-			Vector2 moveDirection = toNext.Normalized();
-			var moveAmount = moveDirection * distanceThisFrame;
-
-			float x = GlobalPosition.X + moveAmount.X;
-			float y = GlobalPosition.Y;
-			float z = GlobalPosition.Z + moveAmount.Y;
-
-			GlobalPosition = new Vector3(x, y, z);
-		}
+		GlobalPosition = new Vector3(
+			GlobalPosition.X + moveAmount.X,
+			GlobalPosition.Y,
+			GlobalPosition.Z + moveAmount.Y
+		);
 	}
 }

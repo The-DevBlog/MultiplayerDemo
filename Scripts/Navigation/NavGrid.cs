@@ -7,7 +7,10 @@ public partial class NavGrid : Node
     public int Width { get; set; }
     public int Height { get; set; }
 
+    private Vector2I _gridOrigin;
     private NavCell[,] _cells;
+    private int CellSize = 5;
+    private LocalResources _localResources;
     private readonly Vector2I[] _offsets =
     [
         new Vector2I(0, -1), // north
@@ -18,10 +21,20 @@ public partial class NavGrid : Node
 
     public override void _Ready()
     {
-        Width = 10;
-        Height = 10;
+        _localResources = GetTree().CurrentScene as LocalResources;
+        if (_localResources == null)
+        {
+            GD.PrintErr("[NavGrid.Ready()] Could not find LocalResources");
+        }
+        else
+        {
+            Width = _localResources.MapSize.X / CellSize;
+            Height = _localResources.MapSize.Y / CellSize;
+            _gridOrigin = new Vector2I(-_localResources.MapSize.X / 2, -_localResources.MapSize.Y / 2);
+        }
 
         InitGrid();
+        DrawGrid();
     }
 
     public void BuildField(Vector2I targetPosition)
@@ -51,16 +64,16 @@ public partial class NavGrid : Node
 
     public Vector2I WorldToCell(Vector3 worldPosition)
     {
-        int x = Mathf.FloorToInt(worldPosition.X);
-        int z = Mathf.FloorToInt(worldPosition.Z);
+        int x = Mathf.FloorToInt((worldPosition.X - _gridOrigin.X) / CellSize);
+        int z = Mathf.FloorToInt((worldPosition.Z - _gridOrigin.Y) / CellSize);
 
         return new Vector2I(x, z);
     }
 
     public Vector3 CellToWorld(Vector2I cellPosition)
     {
-        float x = cellPosition.X + 0.5f;
-        float z = cellPosition.Y + 0.5f;
+        float x = _gridOrigin.X + cellPosition.X * CellSize + CellSize / 2.0f;
+        float z = _gridOrigin.Y + cellPosition.Y * CellSize + CellSize / 2.0f;
         float y = 0;
 
         return new Vector3(x, y, z);
@@ -193,5 +206,45 @@ public partial class NavGrid : Node
             return false;
 
         return true;
+    }
+
+    private void DrawGrid()
+    {
+        ImmediateMesh mesh = new ImmediateMesh();
+        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+
+        int left = _gridOrigin.X;
+        int right = _gridOrigin.X + Width * CellSize;
+        int top = _gridOrigin.Y;
+        int bottom = _gridOrigin.Y + Height * CellSize;
+        float y = 0.03f;
+
+        for (int x = 0; x <= Width; x++)
+        {
+            float worldX = left + x * CellSize;
+
+            mesh.SurfaceAddVertex(new Vector3(worldX, y, top));
+            mesh.SurfaceAddVertex(new Vector3(worldX, y, bottom));
+        }
+
+        for (int z = 0; z <= Height; z++)
+        {
+            float worldZ = top + z * CellSize;
+
+            mesh.SurfaceAddVertex(new Vector3(left, y, worldZ));
+            mesh.SurfaceAddVertex(new Vector3(right, y, worldZ));
+        }
+
+        mesh.SurfaceEnd();
+
+        MeshInstance3D gridMesh = new MeshInstance3D();
+        StandardMaterial3D material = new StandardMaterial3D();
+        material.AlbedoColor = new Color(1, 1, 1, 0.75f);
+        material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+
+        gridMesh.MaterialOverride = material;
+        gridMesh.Mesh = mesh;
+
+        AddChild(gridMesh);
     }
 }

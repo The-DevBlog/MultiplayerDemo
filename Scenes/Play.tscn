@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://cly26136ynp7d"]
 
+[ext_resource type="Script" uid="uid://blvvgjbsyjrfa" path="res://Scripts/LocalResources.cs" id="1_ek1d2"]
 [ext_resource type="PackedScene" uid="uid://pgtfmwkvel1a" path="res://Scenes/unit.tscn" id="1_vlv1q"]
 [ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://Scripts/MouseManager.cs" id="2_1m0ic"]
 [ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://Scripts/LockstepManager.cs" id="3_vlv1q"]
@@ -14,25 +15,10 @@ material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
 
 [node name="Play" type="Node3D" unique_id=1550871505]
+script = ExtResource("1_ek1d2")
+MapSize = Vector2i(100, 100)
 
 [node name="Unit" parent="." unique_id=1363236879 instance=ExtResource("1_vlv1q")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.043325, 0, 5.6781483)
-
-[node name="Unit2" parent="." unique_id=2092125837 instance=ExtResource("1_vlv1q")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.017878, 0, 8.992912)
-UnitID = 2
-
-[node name="Unit3" parent="." unique_id=1624947468 instance=ExtResource("1_vlv1q")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.841465, 0, 8.298105)
-UnitID = 3
-
-[node name="Unit4" parent="." unique_id=828225403 instance=ExtResource("1_vlv1q")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.770172, 0, 5.960453)
-UnitID = 4
-
-[node name="Unit5" parent="." unique_id=1139381942 instance=ExtResource("1_vlv1q")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.134342, 0, 8.686705)
-UnitID = 5
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
 unique_name_in_owner = true

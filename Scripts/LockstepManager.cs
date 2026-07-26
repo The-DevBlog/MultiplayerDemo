@@ -145,8 +145,9 @@ public partial class LockstepManager : Node
 				{
 					if (_units.TryGetValue(id, out Unit unit))
 					{
-						Vector3I newPosition = new Vector3I(cmd.Position.X, 0, cmd.Position.Y);
-						unit.MoveTo(newPosition);
+						// Vector3I newPosition = new Vector3I(cmd.Position.X, 0, cmd.Position.Y);
+						// unit.MoveTo(newPosition);
+						unit.MoveToCell(cmd.Position);
 					}
 				}
 			}

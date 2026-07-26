@@ -1,6 +1,5 @@
 using Godot;
 using Godot.Collections;
-using System;
 using System.Collections.Generic;
 
 public partial class MouseManager : Node
@@ -14,6 +13,7 @@ public partial class MouseManager : Node
 	private Vector2 _dragStart;
 	private Vector2 _dragCurrent;
 	private bool _isDragging;
+	private NavGrid _navGrid;
 
 	private LockstepManager _lockstepManager;
 
@@ -22,6 +22,10 @@ public partial class MouseManager : Node
 		_lockstepManager = GetNode<LockstepManager>("%LockstepManager");
 		if (_lockstepManager == null)
 			GD.PrintErr("LockstepManager could not be found");
+
+		_navGrid = GetNode<NavGrid>("%NavGrid");
+		if (_navGrid == null)
+			GD.PrintErr("NavGrid could not be found");
 
 		_selectionOverlay = new CanvasLayer
 		{
@@ -217,29 +221,14 @@ public partial class MouseManager : Node
 			return;
 		}
 
-		Vector3 center = Vector3.Zero;
-		foreach (Unit unit in _selectedUnits)
-		{
-			center += unit.GlobalPosition;
-		}
-		center /= _selectedUnits.Count;
-
 		var unitIDs = new Array<int>();
 		foreach (Unit unit in _selectedUnits)
 		{
-			// Vector3 offset = unit.GlobalPosition - center;
-			// offset.Y = 0.0f;
-
 			unitIDs.Add(unit.UnitID);
-			// unit.MoveTo(targetPosition + offset);
 		}
 
-		int x = Mathf.RoundToInt(targetPosition.X);
-		int y = Mathf.RoundToInt(targetPosition.Z);
-		Vector2I newPos = new Vector2I(x, y);
-
-		// _lockstepManager.Rpc(nameof(_lockstepManager.RequestMove), unitIDs, newPos);
-		_lockstepManager.RequestMove(unitIDs, newPos);
+		Vector2I targetCell = _navGrid.WorldToCell(targetPosition);
+		_lockstepManager.RequestMove(unitIDs, targetCell);
 	}
 
 	private IEnumerable<Unit> GetUnits()
@@ -262,7 +251,7 @@ public partial class MouseManager : Node
 			return false;
 		}
 
-		targetPosition = GetClosestNavigationPoint(groundPosition);
+		targetPosition = groundPosition;
 		return true;
 	}
 
@@ -291,17 +280,6 @@ public partial class MouseManager : Node
 
 		groundPosition = rayOrigin + rayDirection * distance;
 		return true;
-	}
-
-	private Vector3 GetClosestNavigationPoint(Vector3 worldPosition)
-	{
-		Camera3D camera = GetViewport().GetCamera3D();
-		if (camera == null)
-		{
-			return worldPosition;
-		}
-
-		return new Vector3();
 	}
 
 	private float GetGroundHeight()
@@ -344,5 +322,4 @@ public partial class MouseManager : Node
 		_selectionBox.Position = rect.Position;
 		_selectionBox.Size = rect.Size;
 	}
-
 }
