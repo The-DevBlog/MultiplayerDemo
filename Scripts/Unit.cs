@@ -9,10 +9,8 @@ public partial class Unit : Node3D
 	[Export] public int PlayerID { get; set; }
 	[Export] public float MoveSpeed { get; set; } = 8.0f;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
-	[Export] public NodePath NavigationAgentPath { get; set; } = "NavigationAgent3D";
 
 	private MeshInstance3D _mesh;
-	private NavigationAgent3D _navigationAgent;
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
 	private Vector3I _targetPosition;
@@ -26,19 +24,6 @@ public partial class Unit : Node3D
 		AddToGroup(UnitsGroup);
 
 		_mesh = GetNodeOrNull<MeshInstance3D>(MeshPath);
-		_navigationAgent = GetNodeOrNull<NavigationAgent3D>(NavigationAgentPath);
-		if (_navigationAgent == null)
-		{
-			_navigationAgent = new NavigationAgent3D
-			{
-				Name = "NavigationAgent3D",
-			};
-			AddChild(_navigationAgent);
-		}
-
-		_navigationAgent.PathDesiredDistance = ArriveDistance;
-		_navigationAgent.TargetDesiredDistance = ArriveDistance;
-		_navigationAgent.MaxSpeed = MoveSpeed;
 
 		_defaultMaterialOverride = _mesh?.MaterialOverride;
 		_selectedMaterial = new StandardMaterial3D
@@ -75,13 +60,7 @@ public partial class Unit : Node3D
 
 	private Vector3 GetNextMovePosition()
 	{
-		if (_navigationAgent.IsNavigationFinished())
-		{
-			return _targetPosition;
-		}
-
-		Vector3 nextPathPosition = _navigationAgent.GetNextPathPosition();
-		return HasArrived(GetFlatDirectionTo(nextPathPosition)) ? _targetPosition : nextPathPosition;
+		return new Vector3();
 	}
 
 	private Vector3 GetFlatDirectionTo(Vector3 worldPosition)
@@ -132,8 +111,6 @@ public partial class Unit : Node3D
 
 	public void MoveTo(Vector3I worldPosition)
 	{
-		_targetPosition = worldPosition;
-		_hasTarget = true;
-		_navigationAgent.TargetPosition = _targetPosition;
+
 	}
 }

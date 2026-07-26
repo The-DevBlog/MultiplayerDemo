@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://pgtfmwkvel1a"]
 
-[ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Unit.cs" id="1_yjw0f"]
+[ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Scripts/Unit.cs" id="1_yjw0f"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_1m0ic"]
 
@@ -15,9 +15,3 @@ UnitID = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("BoxMesh_1m0ic")
 surface_material_override/0 = SubResource("StandardMaterial3D_2peyt")
-
-[node name="NavigationAgent3D" type="NavigationAgent3D" parent="." unique_id=995372523]
-path_desired_distance = 0.15
-target_desired_distance = 0.15
-avoidance_enabled = true
-max_speed = 8.0

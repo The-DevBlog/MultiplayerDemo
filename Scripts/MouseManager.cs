@@ -301,13 +301,7 @@ public partial class MouseManager : Node
 			return worldPosition;
 		}
 
-		Rid navigationMap = camera.GetWorld3D().NavigationMap;
-		if (!NavigationServer3D.MapGetClosestPointOwner(navigationMap, worldPosition).IsValid)
-		{
-			return worldPosition;
-		}
-
-		return NavigationServer3D.MapGetClosestPoint(navigationMap, worldPosition);
+		return new Vector3();
 	}
 
 	private float GetGroundHeight()

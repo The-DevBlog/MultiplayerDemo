@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://cly26136ynp7d"]
 
 [ext_resource type="PackedScene" uid="uid://pgtfmwkvel1a" path="res://Scenes/unit.tscn" id="1_vlv1q"]
-[ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://MouseManager.cs" id="2_1m0ic"]
-[ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://LockstepManager.cs" id="3_vlv1q"]
+[ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://Scripts/MouseManager.cs" id="2_1m0ic"]
+[ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://Scripts/LockstepManager.cs" id="3_vlv1q"]
 [ext_resource type="PackedScene" uid="uid://bpe1g352atpsm" path="res://CommandUI.tscn" id="4_nsvgp"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7522t"]
@@ -11,10 +11,6 @@ albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
 [sub_resource type="QuadMesh" id="QuadMesh_tkwp6"]
 material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
-
-[sub_resource type="NavigationMesh" id="NavigationMesh_vialh"]
-vertices = PackedVector3Array(-50, 0, -50, -50, 0, 50, 50, 0, 50, 50, 0, -50)
-polygons = [PackedInt32Array(0, 1, 2, 3)]
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 
@@ -41,9 +37,6 @@ UnitID = 5
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.015716553, 0.020378113, 0.012013912)
 mesh = SubResource("QuadMesh_tkwp6")
-
-[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=1961628832]
-navigation_mesh = SubResource("NavigationMesh_vialh")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1119935622]
 transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 40.86361, 31.378685)

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bpe1g352atpsm"]
 
-[ext_resource type="Script" uid="uid://iuvmmki2tn1x" path="res://CommandUI.cs" id="1_r5lbb"]
+[ext_resource type="Script" uid="uid://iuvmmki2tn1x" path="res://Scripts/CommandUI.cs" id="1_r5lbb"]
 
 [node name="CommandUI" type="Control" unique_id=1970721745]
 layout_mode = 3
