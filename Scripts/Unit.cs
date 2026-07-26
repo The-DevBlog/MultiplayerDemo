@@ -3,25 +3,28 @@ using Godot;
 public partial class Unit : Node3D
 {
 	private const string UnitsGroup = "units";
-	private const float ArriveDistance = 0.15f;
 
 	[Export] public int UnitID { get; set; }
 	[Export] public int PlayerID { get; set; }
-	[Export] public float MoveSpeed { get; set; } = 8.0f;
+	[Export] public float Speed { get; set; } = 8.0f;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 
+	private NavGrid _navGrid;
 	private MeshInstance3D _mesh;
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
-	private Vector3I _targetPosition;
-	private bool _hasTarget;
-	private bool _isSelected;
+	private bool _isMoving;
 
 	public bool IsSelected => _isSelected;
+	private bool _isSelected;
 
 	public override void _Ready()
 	{
 		AddToGroup(UnitsGroup);
+
+		_navGrid = GetTree().CurrentScene.GetNode<NavGrid>("%NavGrid");
+		if (_navGrid == null)
+			GD.PrintErr("[Unit.cs.Ready()] Could not find NavGrid");
 
 		_mesh = GetNodeOrNull<MeshInstance3D>(MeshPath);
 
@@ -36,65 +39,11 @@ public partial class Unit : Node3D
 		int x = Mathf.RoundToInt(GlobalPosition.X);
 		int y = Mathf.RoundToInt(GlobalPosition.Y);
 		int z = Mathf.RoundToInt(GlobalPosition.Z);
-
-		_targetPosition = new Vector3I(x, y, z);
 	}
 
 	public override void _PhysicsProcess(double delta)
 	{
-		if (!_hasTarget)
-		{
-			return;
-		}
-
-		Vector3 toTarget = GetFlatDirectionTo(_targetPosition);
-
-		if (HasArrived(toTarget))
-		{
-			StopMoving();
-			return;
-		}
-
-		MoveTowardTarget(GetNextMovePosition(), delta);
-	}
-
-	private Vector3 GetNextMovePosition()
-	{
-		return new Vector3();
-	}
-
-	private Vector3 GetFlatDirectionTo(Vector3 worldPosition)
-	{
-		Vector3 currentPosition = GlobalPosition;
-		Vector3 flatCurrentPosition = new(currentPosition.X, 0.0f, currentPosition.Z);
-		Vector3 flatTargetPosition = new(worldPosition.X, 0.0f, worldPosition.Z);
-
-		return flatTargetPosition - flatCurrentPosition;
-	}
-
-	private static bool HasArrived(Vector3 toTarget)
-	{
-		return toTarget.Length() <= ArriveDistance;
-	}
-
-	private void StopMoving()
-	{
-		_hasTarget = false;
-	}
-
-	private void MoveTowardTarget(Vector3 nextPathPosition, double delta)
-	{
-		Vector3 toTarget = GetFlatDirectionTo(nextPathPosition);
-		float distanceThisFrame = MoveSpeed * (float)delta;
-
-		if (toTarget.Length() <= distanceThisFrame)
-		{
-			GlobalPosition = new Vector3(nextPathPosition.X, GlobalPosition.Y, nextPathPosition.Z);
-			return;
-		}
-
-		Vector3 direction = toTarget.Normalized();
-		GlobalPosition += new Vector3(direction.X, 0.0f, direction.Z) * distanceThisFrame;
+		Move(delta);
 	}
 
 	public void SetSelected(bool selected)
@@ -109,8 +58,52 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	public void MoveTo(Vector3I worldPosition)
+	public void MoveTo(Vector3 worldPos)
 	{
+		Vector2I targetCellPos = _navGrid.WorldToCell(worldPos);
 
+		_navGrid.BuildField(targetCellPos);
+		_isMoving = true;
+	}
+
+	private void Move(double delta)
+	{
+		if (!_isMoving || _navGrid == null)
+			return;
+
+		Vector2I currentCellPos = _navGrid.WorldToCell(GlobalPosition);
+		Vector2I direction = _navGrid.GetDirection(currentCellPos);
+
+		if (direction == Vector2I.Zero)
+		{
+			_isMoving = false;
+			return;
+		}
+
+		Vector2I nextCellPos = currentCellPos + direction;
+		Vector3 nextWorldPos = _navGrid.CellToWorld(nextCellPos);
+
+		Vector2 currentFlatPos = new Vector2(GlobalPosition.X, GlobalPosition.Z);
+		Vector2 nextFlatPos = new Vector2(nextWorldPos.X, nextWorldPos.Z);
+
+		Vector2 toNext = nextFlatPos - currentFlatPos;
+		float distanceThisFrame = Speed * (float)delta;
+
+		if (toNext.Length() <= distanceThisFrame)
+		{
+			float y = GlobalPosition.Y;
+			GlobalPosition = new Vector3(nextWorldPos.X, y, nextWorldPos.Z);
+		}
+		else
+		{
+			Vector2 moveDirection = toNext.Normalized();
+			var moveAmount = moveDirection * distanceThisFrame;
+
+			float x = GlobalPosition.X + moveAmount.X;
+			float y = GlobalPosition.Y;
+			float z = GlobalPosition.Z + moveAmount.Y;
+
+			GlobalPosition = new Vector3(x, y, z);
+		}
 	}
 }

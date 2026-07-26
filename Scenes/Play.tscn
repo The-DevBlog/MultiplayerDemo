@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://ceei8ab6swik3" path="res://Scripts/MouseManager.cs" id="2_1m0ic"]
 [ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://Scripts/LockstepManager.cs" id="3_vlv1q"]
 [ext_resource type="PackedScene" uid="uid://bpe1g352atpsm" path="res://CommandUI.tscn" id="4_nsvgp"]
+[ext_resource type="Script" uid="uid://b415q4vmxsrrq" path="res://Scripts/Navigation/NavGrid.cs" id="5_vx41i"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7522t"]
 albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
@@ -52,3 +53,7 @@ unique_name_in_owner = true
 script = ExtResource("3_vlv1q")
 
 [node name="CommandUI" parent="." unique_id=1970721745 instance=ExtResource("4_nsvgp")]
+
+[node name="NavGrid" type="Node" parent="." unique_id=1923506836]
+unique_name_in_owner = true
+script = ExtResource("5_vx41i")
