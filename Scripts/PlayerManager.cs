@@ -48,8 +48,7 @@ public partial class PlayerManager : Node
 		}
 		else
 		{
-			Player = newPlayer;
-			GD.Print($"Player {peerID} conencted");
+			AssignPlayer(peerID);
 		}
 	}
 
