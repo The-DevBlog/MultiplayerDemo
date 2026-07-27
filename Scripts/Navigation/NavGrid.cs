@@ -10,14 +10,21 @@ public partial class NavGrid : Node
     private Vector2I _gridOrigin;
     private NavCell[,] _cells;
     private int CellSize = 5;
+    private int _diagonalCost = 14;
+    private int _straightCost = 10;
     private readonly NavGridDebugRenderer _debugRenderer = new();
     private LocalResources _localResources;
     private readonly Vector2I[] _offsets =
     [
-        new Vector2I(0, -1), // north
-		new Vector2I(0, 1),  // south
-		new Vector2I(1, 0),  // east
-		new Vector2I(-1, 0), // west
+        new Vector2I(0, -1),  // N
+		new Vector2I(0, 1),   // S
+		new Vector2I(1, 0),   // E
+		new Vector2I(-1, 0),  // W
+
+        new Vector2I(1, -1),  // NE
+        new Vector2I(-1, -1), // NW
+        new Vector2I(1, 1),   // SE
+        new Vector2I(-1, 1)   // SW
 	];
 
     public override void _Ready()
@@ -155,7 +162,8 @@ public partial class NavGrid : Node
 
             foreach (NavCell neighborCell in neighbors)
             {
-                int newIntegrationCost = currentCell.IntegrationCost + neighborCell.Cost;
+                int moveCost = GetMoveCost(currentCell.Position, neighborCell.Position);
+                int newIntegrationCost = currentCell.IntegrationCost + moveCost * neighborCell.Cost;
                 if (newIntegrationCost < neighborCell.IntegrationCost)
                 {
                     neighborCell.IntegrationCost = newIntegrationCost;
@@ -195,6 +203,14 @@ public partial class NavGrid : Node
         }
 
         return neighbors.ToArray();
+    }
+
+    private int GetMoveCost(Vector2I from, Vector2I to)
+    {
+        Vector2I delta = to - from;
+
+        bool isDiagonal = delta.X != 0 && delta.Y != 0;
+        return isDiagonal ? _diagonalCost : _straightCost;
     }
 
     private void ResetIntegrationCosts()
