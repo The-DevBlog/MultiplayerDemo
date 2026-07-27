@@ -43,3 +43,4 @@ script = ExtResource("3_vlv1q")
 [node name="NavGrid" type="Node" parent="." unique_id=1923506836]
 unique_name_in_owner = true
 script = ExtResource("5_vx41i")
+_drawNavGrid = true

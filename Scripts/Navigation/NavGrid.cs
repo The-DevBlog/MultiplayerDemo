@@ -4,9 +4,9 @@ using Godot;
 
 public partial class NavGrid : Node
 {
-    public int Width { get; set; }
-    public int Height { get; set; }
-
+    [Export] private bool _drawNavGrid;
+    private int _width { get; set; }
+    private int _height { get; set; }
     private Vector2I _gridOrigin;
     private NavCell[,] _cells;
     private int CellSize = 5;
@@ -29,13 +29,15 @@ public partial class NavGrid : Node
         }
         else
         {
-            Width = _localResources.MapSize.X / CellSize;
-            Height = _localResources.MapSize.Y / CellSize;
+            _width = _localResources.MapSize.X / CellSize;
+            _height = _localResources.MapSize.Y / CellSize;
             _gridOrigin = new Vector2I(-_localResources.MapSize.X / 2, -_localResources.MapSize.Y / 2);
         }
 
         InitGrid();
-        _debugRenderer.DrawGrid(this, _gridOrigin, Width, Height, CellSize, _cells);
+
+        if (_drawNavGrid)
+            _debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells);
     }
 
     public void BuildField(Vector2I targetPosition)
@@ -44,7 +46,9 @@ public partial class NavGrid : Node
         if (isIntegrationFieldBuilt)
         {
             BuildFlowField();
-            _debugRenderer.DrawGrid(this, _gridOrigin, Width, Height, CellSize, _cells, targetPosition);
+
+            if (_drawNavGrid)
+                _debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells, targetPosition);
         }
     }
 
@@ -85,11 +89,11 @@ public partial class NavGrid : Node
 
     private void InitGrid()
     {
-        _cells = new NavCell[Width, Height];
+        _cells = new NavCell[_width, _height];
 
-        for (int x = 0; x < Width; x++)
+        for (int x = 0; x < _width; x++)
         {
-            for (int y = 0; y < Height; y++)
+            for (int y = 0; y < _height; y++)
             {
                 Vector2I position = new Vector2I(x, y);
                 NavCell cell = new NavCell(position);
@@ -206,7 +210,7 @@ public partial class NavGrid : Node
         int x = cellPosition.X;
         int y = cellPosition.Y;
 
-        if (x >= Width || y >= Height || x < 0 || y < 0)
+        if (x >= _width || y >= _height || x < 0 || y < 0)
             return false;
 
         return true;
