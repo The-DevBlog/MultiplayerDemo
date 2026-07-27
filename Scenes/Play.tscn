@@ -14,6 +14,11 @@ albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
 material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
 
+[sub_resource type="BoxMesh" id="BoxMesh_ptkwr"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_ek1d2"]
+size = Vector3(1, 1, 9.21)
+
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
 MapSize = Vector2i(100, 100)
@@ -44,3 +49,19 @@ script = ExtResource("3_vlv1q")
 unique_name_in_owner = true
 script = ExtResource("5_vx41i")
 _drawNavGrid = true
+
+[node name="Obstacle" type="MeshInstance3D" parent="." unique_id=1489313604 groups=["nav_obstacles"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.956303, 1.1073084, 4.174856)
+mesh = SubResource("BoxMesh_ptkwr")
+
+[node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.924286, 1.1073084, 16.076973)
+mesh = SubResource("BoxMesh_ptkwr")
+
+[node name="Obstacle3" type="MeshInstance3D" parent="." unique_id=1796423472 groups=["nav_obstacles"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.734972, 1.1073084, -7.404875)
+mesh = SubResource("BoxMesh_ptkwr")
+
+[node name="Obstacle4" type="MeshInstance3D" parent="." unique_id=970118096 groups=["nav_obstacles"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.94713, 1.1073065, 12.419134)
+mesh = SubResource("BoxMesh_ek1d2")

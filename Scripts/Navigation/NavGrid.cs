@@ -1,235 +1,246 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Godot;
 
 public partial class NavGrid : Node
 {
-    [Export] private bool _drawNavGrid;
-    private int _width { get; set; }
-    private int _height { get; set; }
-    private Vector2I _gridOrigin;
-    private NavCell[,] _cells;
-    private int CellSize = 5;
-    private int _diagonalCost = 14;
-    private int _straightCost = 10;
-    private readonly NavGridDebugRenderer _debugRenderer = new();
-    private LocalResources _localResources;
-    private readonly Vector2I[] _offsets =
-    [
-        new Vector2I(0, -1),  // N
+	[Export] private bool _drawNavGrid;
+	private int _width { get; set; }
+	private int _height { get; set; }
+	private Vector2I _gridOrigin;
+	private NavCell[,] _cells;
+	private int CellSize = 5;
+	private int _diagonalCost = 14;
+	private int _straightCost = 10;
+	private readonly NavGridDebugRenderer _debugRenderer = new();
+	private LocalResources _localResources;
+	private readonly Vector2I[] _offsets =
+	[
+		new Vector2I(0, -1),  // N
 		new Vector2I(0, 1),   // S
 		new Vector2I(1, 0),   // E
 		new Vector2I(-1, 0),  // W
 
-        new Vector2I(1, -1),  // NE
-        new Vector2I(-1, -1), // NW
-        new Vector2I(1, 1),   // SE
-        new Vector2I(-1, 1)   // SW
+		new Vector2I(1, -1),  // NE
+		new Vector2I(-1, -1), // NW
+		new Vector2I(1, 1),   // SE
+		new Vector2I(-1, 1)   // SW
 	];
 
-    public override void _Ready()
-    {
-        _localResources = GetTree().CurrentScene as LocalResources;
-        if (_localResources == null)
-        {
-            GD.PrintErr("[NavGrid.Ready()] Could not find LocalResources");
-        }
-        else
-        {
-            _width = _localResources.MapSize.X / CellSize;
-            _height = _localResources.MapSize.Y / CellSize;
-            _gridOrigin = new Vector2I(-_localResources.MapSize.X / 2, -_localResources.MapSize.Y / 2);
-        }
+	public override void _Ready()
+	{
+		_localResources = GetTree().CurrentScene as LocalResources;
+		if (_localResources == null)
+		{
+			GD.PrintErr("[NavGrid.Ready()] Could not find LocalResources");
+		}
+		else
+		{
+			_width = _localResources.MapSize.X / CellSize;
+			_height = _localResources.MapSize.Y / CellSize;
+			_gridOrigin = new Vector2I(-_localResources.MapSize.X / 2, -_localResources.MapSize.Y / 2);
+		}
 
-        InitGrid();
+		InitGrid();
+		LoadObstacles();
 
-        if (_drawNavGrid)
-            _debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells);
-    }
+		if (_drawNavGrid)
+			_debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells);
+	}
 
-    public void BuildField(Vector2I targetPosition)
-    {
-        bool isIntegrationFieldBuilt = BuildIntegrationField(targetPosition);
-        if (isIntegrationFieldBuilt)
-        {
-            BuildFlowField();
+	private void LoadObstacles()
+	{
+		foreach (Node3D node in GetTree().GetNodesInGroup("nav_obstacles"))
+		{
+			Vector2I cellPos = WorldToCell(node.GlobalPosition);
+			SetWalkable(cellPos, false);
+		}
+	}
 
-            if (_drawNavGrid)
-                _debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells, targetPosition);
-        }
-    }
+	public void BuildField(Vector2I targetPosition)
+	{
+		bool isIntegrationFieldBuilt = BuildIntegrationField(targetPosition);
+		if (isIntegrationFieldBuilt)
+		{
+			BuildFlowField();
 
-    public Vector2I GetDirection(Vector2I cellPosition)
-    {
-        NavCell cell = GetCell(cellPosition);
-        if (cell == null)
-            return Vector2I.Zero;
+			if (_drawNavGrid)
+				_debugRenderer.DrawGrid(this, _gridOrigin, _width, _height, CellSize, _cells, targetPosition);
+		}
+	}
 
-        return cell.Direction;
-    }
+	public Vector2I GetDirection(Vector2I cellPosition)
+	{
+		NavCell cell = GetCell(cellPosition);
+		if (cell == null)
+			return Vector2I.Zero;
 
-    public void SetWalkable(Vector2I cellPosition, bool walkable)
-    {
-        NavCell cell = GetCell(cellPosition);
-        if (cell == null)
-            return;
+		return cell.Direction;
+	}
 
-        cell.Walkable = walkable;
-    }
+	public void SetWalkable(Vector2I cellPosition, bool walkable)
+	{
+		NavCell cell = GetCell(cellPosition);
+		if (cell == null)
+			return;
 
-    public Vector2I WorldToCell(Vector3 worldPosition)
-    {
-        int x = Mathf.FloorToInt((worldPosition.X - _gridOrigin.X) / CellSize);
-        int z = Mathf.FloorToInt((worldPosition.Z - _gridOrigin.Y) / CellSize);
+		cell.Walkable = walkable;
+	}
 
-        return new Vector2I(x, z);
-    }
+	public Vector2I WorldToCell(Vector3 worldPosition)
+	{
+		int x = Mathf.FloorToInt((worldPosition.X - _gridOrigin.X) / CellSize);
+		int z = Mathf.FloorToInt((worldPosition.Z - _gridOrigin.Y) / CellSize);
 
-    public Vector3 CellToWorld(Vector2I cellPosition)
-    {
-        float x = _gridOrigin.X + cellPosition.X * CellSize + CellSize / 2.0f;
-        float z = _gridOrigin.Y + cellPosition.Y * CellSize + CellSize / 2.0f;
-        float y = 0;
+		return new Vector2I(x, z);
+	}
 
-        return new Vector3(x, y, z);
-    }
+	public Vector3 CellToWorld(Vector2I cellPosition)
+	{
+		float x = _gridOrigin.X + cellPosition.X * CellSize + CellSize / 2.0f;
+		float z = _gridOrigin.Y + cellPosition.Y * CellSize + CellSize / 2.0f;
+		float y = 0;
 
-    private void InitGrid()
-    {
-        _cells = new NavCell[_width, _height];
+		return new Vector3(x, y, z);
+	}
 
-        for (int x = 0; x < _width; x++)
-        {
-            for (int y = 0; y < _height; y++)
-            {
-                Vector2I position = new Vector2I(x, y);
-                NavCell cell = new NavCell(position);
-                _cells[x, y] = cell;
-            }
-        }
-    }
+	private void InitGrid()
+	{
+		_cells = new NavCell[_width, _height];
 
-    private void BuildFlowField()
-    {
-        foreach (NavCell cell in _cells)
-        {
-            if (!cell.Walkable)
-            {
-                cell.Direction = Vector2I.Zero;
-                continue;
-            }
+		for (int x = 0; x < _width; x++)
+		{
+			for (int y = 0; y < _height; y++)
+			{
+				Vector2I position = new Vector2I(x, y);
+				NavCell cell = new NavCell(position);
+				_cells[x, y] = cell;
+			}
+		}
+	}
 
-            NavCell[] neighbors = GetNeighbors(cell.Position);
-            if (neighbors.Length == 0)
-                continue;
+	private void BuildFlowField()
+	{
+		foreach (NavCell cell in _cells)
+		{
+			if (!cell.Walkable)
+			{
+				cell.Direction = Vector2I.Zero;
+				continue;
+			}
 
-            NavCell bestNeighbor = null;
-            int bestCost = cell.IntegrationCost;
+			NavCell[] neighbors = GetNeighbors(cell.Position);
+			if (neighbors.Length == 0)
+				continue;
 
-            foreach (NavCell neighbor in neighbors)
-            {
-                if (neighbor.IntegrationCost < bestCost)
-                {
-                    bestNeighbor = neighbor;
-                    bestCost = neighbor.IntegrationCost;
-                }
-            }
+			NavCell bestNeighbor = null;
+			int bestCost = cell.IntegrationCost;
 
-            if (bestNeighbor != null)
-                cell.Direction = bestNeighbor.Position - cell.Position;
-            else
-                cell.Direction = Vector2I.Zero;
-        }
-    }
+			foreach (NavCell neighbor in neighbors)
+			{
+				if (neighbor.IntegrationCost < bestCost)
+				{
+					bestNeighbor = neighbor;
+					bestCost = neighbor.IntegrationCost;
+				}
+			}
 
-    private bool BuildIntegrationField(Vector2I targetPosition)
-    {
-        ResetIntegrationCosts();
+			if (bestNeighbor != null)
+				cell.Direction = bestNeighbor.Position - cell.Position;
+			else
+				cell.Direction = Vector2I.Zero;
+		}
+	}
 
-        NavCell targetCell = GetCell(targetPosition);
-        if (targetCell == null)
-            return false;
+	private bool BuildIntegrationField(Vector2I targetPosition)
+	{
+		ResetIntegrationCosts();
 
-        targetCell.IntegrationCost = 0;
+		NavCell targetCell = GetCell(targetPosition);
+		if (targetCell == null)
+			return false;
 
-        var queue = new Queue<NavCell>();
-        queue.Enqueue(targetCell);
+		targetCell.IntegrationCost = 0;
 
-        while (queue.Count > 0)
-        {
-            NavCell currentCell = queue.Dequeue();
-            NavCell[] neighbors = GetNeighbors(currentCell.Position);
+		var queue = new Queue<NavCell>();
+		queue.Enqueue(targetCell);
 
-            foreach (NavCell neighborCell in neighbors)
-            {
-                int moveCost = GetMoveCost(currentCell.Position, neighborCell.Position);
-                int newIntegrationCost = currentCell.IntegrationCost + moveCost * neighborCell.Cost;
-                if (newIntegrationCost < neighborCell.IntegrationCost)
-                {
-                    neighborCell.IntegrationCost = newIntegrationCost;
-                    queue.Enqueue(neighborCell);
-                }
-            }
-        }
+		while (queue.Count > 0)
+		{
+			NavCell currentCell = queue.Dequeue();
+			NavCell[] neighbors = GetNeighbors(currentCell.Position);
 
-        return true;
-    }
+			foreach (NavCell neighborCell in neighbors)
+			{
+				int moveCost = GetMoveCost(currentCell.Position, neighborCell.Position);
+				int newIntegrationCost = currentCell.IntegrationCost + moveCost * neighborCell.Cost;
+				if (newIntegrationCost < neighborCell.IntegrationCost)
+				{
+					neighborCell.IntegrationCost = newIntegrationCost;
+					queue.Enqueue(neighborCell);
+				}
+			}
+		}
 
-    public NavCell GetCell(Vector2I cellPosition)
-    {
-        bool isInBounds = IsInBounds(cellPosition);
-        if (!isInBounds)
-            return null;
+		return true;
+	}
 
-        return _cells[cellPosition.X, cellPosition.Y];
-    }
+	public NavCell GetCell(Vector2I cellPosition)
+	{
+		bool isInBounds = IsInBounds(cellPosition);
+		if (!isInBounds)
+			return null;
+
+		return _cells[cellPosition.X, cellPosition.Y];
+	}
 
 
-    private NavCell[] GetNeighbors(Vector2I cellPosition)
-    {
-        bool isInBounds = IsInBounds(cellPosition);
-        if (!isInBounds)
-            return Array.Empty<NavCell>();
+	private NavCell[] GetNeighbors(Vector2I cellPosition)
+	{
+		bool isInBounds = IsInBounds(cellPosition);
+		if (!isInBounds)
+			return Array.Empty<NavCell>();
 
-        var neighbors = new List<NavCell>();
+		var neighbors = new List<NavCell>();
 
-        foreach (Vector2I offset in _offsets)
-        {
-            NavCell cell = GetCell(cellPosition + offset);
-            if (cell != null && cell.Walkable)
-            {
-                neighbors.Add(cell);
-            }
-        }
+		foreach (Vector2I offset in _offsets)
+		{
+			NavCell cell = GetCell(cellPosition + offset);
+			if (cell != null && cell.Walkable)
+			{
+				neighbors.Add(cell);
+			}
+		}
 
-        return neighbors.ToArray();
-    }
+		return neighbors.ToArray();
+	}
 
-    private int GetMoveCost(Vector2I from, Vector2I to)
-    {
-        Vector2I delta = to - from;
+	private int GetMoveCost(Vector2I from, Vector2I to)
+	{
+		Vector2I delta = to - from;
 
-        bool isDiagonal = delta.X != 0 && delta.Y != 0;
-        return isDiagonal ? _diagonalCost : _straightCost;
-    }
+		bool isDiagonal = delta.X != 0 && delta.Y != 0;
+		return isDiagonal ? _diagonalCost : _straightCost;
+	}
 
-    private void ResetIntegrationCosts()
-    {
-        foreach (NavCell cell in _cells)
-        {
-            cell.ResetIntegrationCost();
-        }
-    }
+	private void ResetIntegrationCosts()
+	{
+		foreach (NavCell cell in _cells)
+		{
+			cell.ResetIntegrationCost();
+		}
+	}
 
-    private bool IsInBounds(Vector2I cellPosition)
-    {
-        int x = cellPosition.X;
-        int y = cellPosition.Y;
+	private bool IsInBounds(Vector2I cellPosition)
+	{
+		int x = cellPosition.X;
+		int y = cellPosition.Y;
 
-        if (x >= _width || y >= _height || x < 0 || y < 0)
-            return false;
+		if (x >= _width || y >= _height || x < 0 || y < 0)
+			return false;
 
-        return true;
-    }
+		return true;
+	}
 
 }

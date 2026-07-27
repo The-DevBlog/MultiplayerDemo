@@ -6,7 +6,6 @@ public partial class LocalResources : Node3D
 	private MeshInstance3D _ground;
 	public override void _Ready()
 	{
-		GD.Print("Mapsize: " + MapSize);
 		_ground = GetNode<MeshInstance3D>("%Ground");
 		if (_ground == null)
 		{

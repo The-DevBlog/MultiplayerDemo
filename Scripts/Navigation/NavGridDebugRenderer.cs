@@ -21,18 +21,17 @@ public class NavGridDebugRenderer
         {
             float worldX = left + x * cellSize;
 
-            mesh.SurfaceAddVertex(new Vector3(worldX, y, top));
-            mesh.SurfaceAddVertex(new Vector3(worldX, y, bottom));
+            AddLine(mesh, new Vector2(worldX, top), new Vector2(worldX, bottom), y);
         }
 
         for (int z = 0; z <= height; z++)
         {
             float worldZ = top + z * cellSize;
 
-            mesh.SurfaceAddVertex(new Vector3(left, y, worldZ));
-            mesh.SurfaceAddVertex(new Vector3(right, y, worldZ));
+            AddLine(mesh, new Vector2(left, worldZ), new Vector2(right, worldZ), y);
         }
 
+        DrawBlockedCells(mesh, gridOrigin, cellSize, cells);
         DrawDirectionArrows(mesh, gridOrigin, cellSize, cells);
         DrawDestinationDiamond(mesh, gridOrigin, cellSize, targetCell);
 
@@ -65,9 +64,29 @@ public class NavGridDebugRenderer
         return new StandardMaterial3D
         {
             AlbedoColor = new Color(1, 1, 1, 1),
+            VertexColorUseAsAlbedo = true,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Disabled,
         };
+    }
+
+    private static void DrawBlockedCells(ImmediateMesh mesh, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
+    {
+        foreach (NavCell cell in cells)
+        {
+            if (cell.Walkable)
+                continue;
+
+            float padding = cellSize * 0.2f;
+            float left = gridOrigin.X + cell.Position.X * cellSize + padding;
+            float right = gridOrigin.X + (cell.Position.X + 1) * cellSize - padding;
+            float top = gridOrigin.Y + cell.Position.Y * cellSize + padding;
+            float bottom = gridOrigin.Y + (cell.Position.Y + 1) * cellSize - padding;
+            float y = 0.09f;
+
+            AddLine(mesh, new Vector2(left, top), new Vector2(right, bottom), y, Colors.Red);
+            AddLine(mesh, new Vector2(right, top), new Vector2(left, bottom), y, Colors.Red);
+        }
     }
 
     private static void DrawDirectionArrows(ImmediateMesh mesh, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
@@ -103,7 +122,14 @@ public class NavGridDebugRenderer
 
     private static void AddLine(ImmediateMesh mesh, Vector2 start, Vector2 end, float y)
     {
+        AddLine(mesh, start, end, y, Colors.White);
+    }
+
+    private static void AddLine(ImmediateMesh mesh, Vector2 start, Vector2 end, float y, Color color)
+    {
+        mesh.SurfaceSetColor(color);
         mesh.SurfaceAddVertex(new Vector3(start.X, y, start.Y));
+        mesh.SurfaceSetColor(color);
         mesh.SurfaceAddVertex(new Vector3(end.X, y, end.Y));
     }
 
