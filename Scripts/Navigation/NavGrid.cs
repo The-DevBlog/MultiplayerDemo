@@ -10,6 +10,7 @@ public partial class NavGrid : Node
     private Vector2I _gridOrigin;
     private NavCell[,] _cells;
     private int CellSize = 5;
+    private readonly NavGridDebugRenderer _debugRenderer = new();
     private LocalResources _localResources;
     private readonly Vector2I[] _offsets =
     [
@@ -34,14 +35,17 @@ public partial class NavGrid : Node
         }
 
         InitGrid();
-        DrawGrid();
+        _debugRenderer.DrawGrid(this, _gridOrigin, Width, Height, CellSize, _cells);
     }
 
     public void BuildField(Vector2I targetPosition)
     {
         bool isIntegrationFieldBuilt = BuildIntegrationField(targetPosition);
         if (isIntegrationFieldBuilt)
+        {
             BuildFlowField();
+            _debugRenderer.DrawGrid(this, _gridOrigin, Width, Height, CellSize, _cells, targetPosition);
+        }
     }
 
     public Vector2I GetDirection(Vector2I cellPosition)
@@ -208,43 +212,4 @@ public partial class NavGrid : Node
         return true;
     }
 
-    private void DrawGrid()
-    {
-        ImmediateMesh mesh = new ImmediateMesh();
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-
-        int left = _gridOrigin.X;
-        int right = _gridOrigin.X + Width * CellSize;
-        int top = _gridOrigin.Y;
-        int bottom = _gridOrigin.Y + Height * CellSize;
-        float y = 0.03f;
-
-        for (int x = 0; x <= Width; x++)
-        {
-            float worldX = left + x * CellSize;
-
-            mesh.SurfaceAddVertex(new Vector3(worldX, y, top));
-            mesh.SurfaceAddVertex(new Vector3(worldX, y, bottom));
-        }
-
-        for (int z = 0; z <= Height; z++)
-        {
-            float worldZ = top + z * CellSize;
-
-            mesh.SurfaceAddVertex(new Vector3(left, y, worldZ));
-            mesh.SurfaceAddVertex(new Vector3(right, y, worldZ));
-        }
-
-        mesh.SurfaceEnd();
-
-        MeshInstance3D gridMesh = new MeshInstance3D();
-        StandardMaterial3D material = new StandardMaterial3D();
-        material.AlbedoColor = new Color(1, 1, 1, 0.75f);
-        material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-
-        gridMesh.MaterialOverride = material;
-        gridMesh.Mesh = mesh;
-
-        AddChild(gridMesh);
-    }
 }
