@@ -36,7 +36,7 @@ public partial class Menu : Control
 	{
 		bool host = _networkManager.Host();
 
-		// // hosting succeeded
+		// hosting succeeded
 		if (host)
 		{
 			GetTree().ChangeSceneToFile("res://Scenes/Lobby.tscn");
