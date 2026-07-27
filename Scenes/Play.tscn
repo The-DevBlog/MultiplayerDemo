@@ -15,9 +15,10 @@ material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ptkwr"]
+size = Vector3(1, 1, 9.76)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ek1d2"]
-size = Vector3(1, 1, 9.21)
+size = Vector3(3.575, 1, 9.21)
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
@@ -51,7 +52,7 @@ script = ExtResource("5_vx41i")
 _drawNavGrid = true
 
 [node name="Obstacle" type="MeshInstance3D" parent="." unique_id=1489313604 groups=["nav_obstacles"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.956303, 1.1073084, 4.174856)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.956303, 1.1073084, 0.20298767)
 mesh = SubResource("BoxMesh_ptkwr")
 
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
@@ -63,5 +64,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.734972, 1.1073084, -7.4048
 mesh = SubResource("BoxMesh_ptkwr")
 
 [node name="Obstacle4" type="MeshInstance3D" parent="." unique_id=970118096 groups=["nav_obstacles"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.94713, 1.1073065, 12.419134)
+transform = Transform3D(0.67913526, 0, -0.73401314, 0, 1, 0, 0.73401314, 0, 0.67913526, 16.94713, 1.1073065, 12.419134)
 mesh = SubResource("BoxMesh_ek1d2")

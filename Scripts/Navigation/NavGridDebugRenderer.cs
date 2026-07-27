@@ -2,11 +2,22 @@ using Godot;
 
 public class NavGridDebugRenderer
 {
-    private MeshInstance3D _gridMesh;
+    private MeshInstance3D _gridLinesMesh;
+    private MeshInstance3D _blockedCellsMesh;
+    private MeshInstance3D _flowArrowsMesh;
+    private MeshInstance3D _targetMesh;
 
     public void DrawGrid(Node parent, Vector2I gridOrigin, int width, int height, int cellSize, NavCell[,] cells, Vector2I? targetCell = null)
     {
-        ClearGrid();
+        DrawGridLines(parent, gridOrigin, width, height, cellSize);
+        DrawBlockedCells(parent, gridOrigin, cellSize, cells);
+        DrawFlowArrows(parent, gridOrigin, cellSize, cells);
+        DrawTarget(parent, gridOrigin, cellSize, targetCell);
+    }
+
+    public void DrawGridLines(Node parent, Vector2I gridOrigin, int width, int height, int cellSize)
+    {
+        ClearGridLines();
 
         ImmediateMesh mesh = new ImmediateMesh();
         mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
@@ -31,32 +42,108 @@ public class NavGridDebugRenderer
             AddLine(mesh, new Vector2(left, worldZ), new Vector2(right, worldZ), y);
         }
 
+        mesh.SurfaceEnd();
+
+        _gridLinesMesh = CreateMeshInstance("NavGridLinesDebugMesh", mesh);
+        parent.AddChild(_gridLinesMesh);
+    }
+
+    public void DrawBlockedCells(Node parent, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
+    {
+        ClearBlockedCells();
+
+        ImmediateMesh mesh = new ImmediateMesh();
+        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+
         DrawBlockedCells(mesh, gridOrigin, cellSize, cells);
+
+        mesh.SurfaceEnd();
+
+        _blockedCellsMesh = CreateMeshInstance("NavGridBlockedCellsDebugMesh", mesh);
+        parent.AddChild(_blockedCellsMesh);
+    }
+
+    public void DrawFlowArrows(Node parent, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
+    {
+        ClearFlowArrows();
+
+        ImmediateMesh mesh = new ImmediateMesh();
+        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+
         DrawDirectionArrows(mesh, gridOrigin, cellSize, cells);
+
+        mesh.SurfaceEnd();
+
+        _flowArrowsMesh = CreateMeshInstance("NavGridFlowArrowsDebugMesh", mesh);
+        parent.AddChild(_flowArrowsMesh);
+    }
+
+    public void DrawTarget(Node parent, Vector2I gridOrigin, int cellSize, Vector2I? targetCell)
+    {
+        ClearTarget();
+
+        if (!targetCell.HasValue)
+            return;
+
+        ImmediateMesh mesh = new ImmediateMesh();
+        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+
         DrawDestinationDiamond(mesh, gridOrigin, cellSize, targetCell);
 
         mesh.SurfaceEnd();
 
-        _gridMesh = new MeshInstance3D
-        {
-            Name = "NavGridDebugMesh",
-            Mesh = mesh,
-            MaterialOverride = CreateGridMaterial(),
-        };
-
-        parent.AddChild(_gridMesh);
+        _targetMesh = CreateMeshInstance("NavGridTargetDebugMesh", mesh);
+        parent.AddChild(_targetMesh);
     }
 
     public void ClearGrid()
     {
-        if (_gridMesh == null || !GodotObject.IsInstanceValid(_gridMesh))
+        ClearGridLines();
+        ClearBlockedCells();
+        ClearFlowArrows();
+        ClearTarget();
+    }
+
+    public void ClearGridLines()
+    {
+        ClearMesh(ref _gridLinesMesh);
+    }
+
+    public void ClearBlockedCells()
+    {
+        ClearMesh(ref _blockedCellsMesh);
+    }
+
+    public void ClearFlowArrows()
+    {
+        ClearMesh(ref _flowArrowsMesh);
+    }
+
+    public void ClearTarget()
+    {
+        ClearMesh(ref _targetMesh);
+    }
+
+    private static void ClearMesh(ref MeshInstance3D meshInstance)
+    {
+        if (meshInstance == null || !GodotObject.IsInstanceValid(meshInstance))
         {
-            _gridMesh = null;
+            meshInstance = null;
             return;
         }
 
-        _gridMesh.QueueFree();
-        _gridMesh = null;
+        meshInstance.QueueFree();
+        meshInstance = null;
+    }
+
+    private static MeshInstance3D CreateMeshInstance(string name, ImmediateMesh mesh)
+    {
+        return new MeshInstance3D
+        {
+            Name = name,
+            Mesh = mesh,
+            MaterialOverride = CreateGridMaterial(),
+        };
     }
 
     private static StandardMaterial3D CreateGridMaterial()
