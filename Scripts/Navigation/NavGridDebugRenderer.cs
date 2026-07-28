@@ -1,247 +1,375 @@
+using System;
 using Godot;
 
 public class NavGridDebugRenderer
 {
-    private MeshInstance3D _gridLinesMesh;
-    private MeshInstance3D _blockedCellsMesh;
-    private MeshInstance3D _flowArrowsMesh;
-    private MeshInstance3D _targetMesh;
+    private const string ShaderPath = "res://Shaders/NavGridDebug.gdshader";
+    private const float OverlayY = 0.08f;
+    private const float GridLineWidthWorld = 0.06f;
+    private const float MarkerLineWidthWorld = 0.125f;
+    private const string GroundNodePath = "%Ground";
+
+    private static readonly Color NeutralDataColor = new(0.0f, 0.5f, 0.5f, 0.0f);
+
+    private Color _gridColor = new(1.0f, 1.0f, 1.0f, 0.35f);
+    private Color _blockedColor = new(1.0f, 0.05f, 0.05f, 0.9f);
+    private Color _flowColor = new(0.1f, 0.75f, 1.0f, 0.9f);
+    private Color _targetColor = new(1.0f, 0.9f, 0.1f, 1.0f);
+
+    private MeshInstance3D _debugMesh;
+    private ShaderMaterial _debugMaterial;
+    private ImageTexture _navDataTexture;
+    private Vector2I _navDataTextureSize;
+    private Vector2 _meshSize;
+    private Mesh _overlayMeshSource;
+    private Node _parent;
+    private Vector2I _gridOrigin;
+    private int _width;
+    private int _height;
+    private int _cellSize;
+    private NavCell[,] _cells;
+    private Vector2I? _targetCell;
+    private bool _gridLinesVisible;
+    private bool _blockedCellsVisible;
+    private bool _flowArrowsVisible;
+    private bool _targetVisible;
+
+    public void SetColors(Color gridColor, Color blockedColor, Color flowColor, Color targetColor)
+    {
+        if (_gridColor == gridColor && _blockedColor == blockedColor && _flowColor == flowColor && _targetColor == targetColor)
+            return;
+
+        _gridColor = gridColor;
+        _blockedColor = blockedColor;
+        _flowColor = flowColor;
+        _targetColor = targetColor;
+
+        UpdateShaderColors();
+    }
 
     public void DrawGrid(Node parent, Vector2I gridOrigin, int width, int height, int cellSize, NavCell[,] cells, Vector2I? targetCell = null)
     {
-        DrawGridLines(parent, gridOrigin, width, height, cellSize);
-        DrawBlockedCells(parent, gridOrigin, cellSize, cells);
-        DrawFlowArrows(parent, gridOrigin, cellSize, cells);
-        DrawTarget(parent, gridOrigin, cellSize, targetCell);
+        SetGridMetrics(gridOrigin, width, height, cellSize);
+        _cells = cells;
+        _targetCell = targetCell;
+        _gridLinesVisible = true;
+        _blockedCellsVisible = true;
+        _flowArrowsVisible = true;
+        _targetVisible = targetCell.HasValue;
+
+        RebuildOverlay(parent);
     }
 
     public void DrawGridLines(Node parent, Vector2I gridOrigin, int width, int height, int cellSize)
     {
-        ClearGridLines();
+        SetGridMetrics(gridOrigin, width, height, cellSize);
+        _gridLinesVisible = true;
 
-        ImmediateMesh mesh = new ImmediateMesh();
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-
-        int left = gridOrigin.X;
-        int right = gridOrigin.X + width * cellSize;
-        int top = gridOrigin.Y;
-        int bottom = gridOrigin.Y + height * cellSize;
-        float y = 0.03f;
-
-        for (int x = 0; x <= width; x++)
-        {
-            float worldX = left + x * cellSize;
-
-            AddLine(mesh, new Vector2(worldX, top), new Vector2(worldX, bottom), y);
-        }
-
-        for (int z = 0; z <= height; z++)
-        {
-            float worldZ = top + z * cellSize;
-
-            AddLine(mesh, new Vector2(left, worldZ), new Vector2(right, worldZ), y);
-        }
-
-        mesh.SurfaceEnd();
-
-        _gridLinesMesh = CreateMeshInstance("NavGridLinesDebugMesh", mesh);
-        parent.AddChild(_gridLinesMesh);
+        RebuildOverlay(parent);
     }
 
     public void DrawBlockedCells(Node parent, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
     {
-        ClearBlockedCells();
+        SetCellGridMetrics(gridOrigin, cellSize, cells);
+        _cells = cells;
+        _blockedCellsVisible = true;
 
-        ImmediateMesh mesh = new ImmediateMesh();
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-
-        DrawBlockedCells(mesh, gridOrigin, cellSize, cells);
-
-        mesh.SurfaceEnd();
-
-        _blockedCellsMesh = CreateMeshInstance("NavGridBlockedCellsDebugMesh", mesh);
-        parent.AddChild(_blockedCellsMesh);
+        RebuildOverlay(parent);
     }
 
     public void DrawFlowArrows(Node parent, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
     {
-        ClearFlowArrows();
+        SetCellGridMetrics(gridOrigin, cellSize, cells);
+        _cells = cells;
+        _flowArrowsVisible = true;
 
-        ImmediateMesh mesh = new ImmediateMesh();
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-
-        DrawDirectionArrows(mesh, gridOrigin, cellSize, cells);
-
-        mesh.SurfaceEnd();
-
-        _flowArrowsMesh = CreateMeshInstance("NavGridFlowArrowsDebugMesh", mesh);
-        parent.AddChild(_flowArrowsMesh);
+        RebuildOverlay(parent);
     }
 
     public void DrawTarget(Node parent, Vector2I gridOrigin, int cellSize, Vector2I? targetCell)
     {
-        ClearTarget();
+        _gridOrigin = gridOrigin;
+        _cellSize = Math.Max(1, cellSize);
+        _targetCell = targetCell;
+        _targetVisible = targetCell.HasValue;
 
-        if (!targetCell.HasValue)
-            return;
-
-        ImmediateMesh mesh = new ImmediateMesh();
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-
-        DrawDestinationDiamond(mesh, gridOrigin, cellSize, targetCell);
-
-        mesh.SurfaceEnd();
-
-        _targetMesh = CreateMeshInstance("NavGridTargetDebugMesh", mesh);
-        parent.AddChild(_targetMesh);
+        RebuildOverlay(parent);
     }
 
     public void ClearGrid()
     {
-        ClearGridLines();
-        ClearBlockedCells();
-        ClearFlowArrows();
-        ClearTarget();
+        _gridLinesVisible = false;
+        _blockedCellsVisible = false;
+        _flowArrowsVisible = false;
+        _targetVisible = false;
+        _targetCell = null;
+
+        ClearOverlay();
     }
 
     public void ClearGridLines()
     {
-        ClearMesh(ref _gridLinesMesh);
+        _gridLinesVisible = false;
+        RebuildOverlay();
     }
 
     public void ClearBlockedCells()
     {
-        ClearMesh(ref _blockedCellsMesh);
+        _blockedCellsVisible = false;
+        RebuildOverlay();
     }
 
     public void ClearFlowArrows()
     {
-        ClearMesh(ref _flowArrowsMesh);
+        _flowArrowsVisible = false;
+        RebuildOverlay();
     }
 
     public void ClearTarget()
     {
-        ClearMesh(ref _targetMesh);
+        _targetVisible = false;
+        _targetCell = null;
+        RebuildOverlay();
     }
 
-    private static void ClearMesh(ref MeshInstance3D meshInstance)
+    private void SetGridMetrics(Vector2I gridOrigin, int width, int height, int cellSize)
     {
-        if (meshInstance == null || !GodotObject.IsInstanceValid(meshInstance))
+        _gridOrigin = gridOrigin;
+        _width = Math.Max(0, width);
+        _height = Math.Max(0, height);
+        _cellSize = Math.Max(1, cellSize);
+    }
+
+    private void SetCellGridMetrics(Vector2I gridOrigin, int cellSize, NavCell[,] cells)
+    {
+        int width = cells?.GetLength(0) ?? _width;
+        int height = cells?.GetLength(1) ?? _height;
+        SetGridMetrics(gridOrigin, width, height, cellSize);
+    }
+
+    private void RebuildOverlay(Node parent = null)
+    {
+        if (parent != null)
+            _parent = parent;
+
+        if (!HasVisibleLayer())
         {
-            meshInstance = null;
+            ClearOverlay();
             return;
         }
 
-        meshInstance.QueueFree();
-        meshInstance = null;
-    }
-
-    private static MeshInstance3D CreateMeshInstance(string name, ImmediateMesh mesh)
-    {
-        return new MeshInstance3D
-        {
-            Name = name,
-            Mesh = mesh,
-            MaterialOverride = CreateGridMaterial(),
-        };
-    }
-
-    private static StandardMaterial3D CreateGridMaterial()
-    {
-        return new StandardMaterial3D
-        {
-            AlbedoColor = new Color(1, 1, 1, 1),
-            VertexColorUseAsAlbedo = true,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Disabled,
-        };
-    }
-
-    private static void DrawBlockedCells(ImmediateMesh mesh, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
-    {
-        foreach (NavCell cell in cells)
-        {
-            if (cell.Walkable)
-                continue;
-
-            float padding = cellSize * 0.2f;
-            float left = gridOrigin.X + cell.Position.X * cellSize + padding;
-            float right = gridOrigin.X + (cell.Position.X + 1) * cellSize - padding;
-            float top = gridOrigin.Y + cell.Position.Y * cellSize + padding;
-            float bottom = gridOrigin.Y + (cell.Position.Y + 1) * cellSize - padding;
-            float y = 0.09f;
-
-            AddLine(mesh, new Vector2(left, top), new Vector2(right, bottom), y, Colors.Red);
-            AddLine(mesh, new Vector2(right, top), new Vector2(left, bottom), y, Colors.Red);
-        }
-    }
-
-    private static void DrawDirectionArrows(ImmediateMesh mesh, Vector2I gridOrigin, int cellSize, NavCell[,] cells)
-    {
-        foreach (NavCell cell in cells)
-        {
-            if (cell.Direction == Vector2I.Zero)
-                continue;
-
-            Vector2 direction = new Vector2(cell.Direction.X, cell.Direction.Y).Normalized();
-            Vector2 perpendicular = new Vector2(-direction.Y, direction.X);
-
-            Vector2 center = new Vector2(
-                gridOrigin.X + cell.Position.X * cellSize + cellSize / 2.0f,
-                gridOrigin.Y + cell.Position.Y * cellSize + cellSize / 2.0f
-            );
-
-            float arrowLength = cellSize * 0.55f;
-            float arrowHeadLength = cellSize * 0.18f;
-            float arrowHeadWidth = cellSize * 0.12f;
-            float y = 0.06f;
-
-            Vector2 start = center - direction * arrowLength * 0.5f;
-            Vector2 end = center + direction * arrowLength * 0.5f;
-            Vector2 headLeft = end - direction * arrowHeadLength + perpendicular * arrowHeadWidth;
-            Vector2 headRight = end - direction * arrowHeadLength - perpendicular * arrowHeadWidth;
-
-            AddLine(mesh, start, end, y);
-            AddLine(mesh, end, headLeft, y);
-            AddLine(mesh, end, headRight, y);
-        }
-    }
-
-    private static void AddLine(ImmediateMesh mesh, Vector2 start, Vector2 end, float y)
-    {
-        AddLine(mesh, start, end, y, Colors.White);
-    }
-
-    private static void AddLine(ImmediateMesh mesh, Vector2 start, Vector2 end, float y, Color color)
-    {
-        mesh.SurfaceSetColor(color);
-        mesh.SurfaceAddVertex(new Vector3(start.X, y, start.Y));
-        mesh.SurfaceSetColor(color);
-        mesh.SurfaceAddVertex(new Vector3(end.X, y, end.Y));
-    }
-
-    private static void DrawDestinationDiamond(ImmediateMesh mesh, Vector2I gridOrigin, int cellSize, Vector2I? targetCell)
-    {
-        if (!targetCell.HasValue)
+        if (_width <= 0 || _height <= 0 || _cellSize <= 0)
             return;
 
-        Vector2I cell = targetCell.Value;
-        Vector2 center = new Vector2(
-            gridOrigin.X + cell.X * cellSize + cellSize / 2.0f,
-            gridOrigin.Y + cell.Y * cellSize + cellSize / 2.0f
+        if (_parent == null || !GodotObject.IsInstanceValid(_parent))
+            return;
+
+        EnsureOverlay(_parent);
+        if (_debugMesh == null || _debugMaterial == null)
+            return;
+
+        UpdateOverlayMesh();
+        UpdateDataTexture();
+        UpdateShaderParameters();
+    }
+
+    private bool HasVisibleLayer()
+    {
+        return _gridLinesVisible || _blockedCellsVisible || _flowArrowsVisible || _targetVisible;
+    }
+
+    private void EnsureOverlay(Node parent)
+    {
+        if (_debugMesh != null && GodotObject.IsInstanceValid(_debugMesh) && _debugMaterial != null)
+            return;
+
+        Shader shader = GD.Load<Shader>(ShaderPath);
+        if (shader == null)
+        {
+            GD.PushError($"NavGridDebugRenderer: Could not load shader at {ShaderPath}");
+            return;
+        }
+
+        _debugMaterial = new ShaderMaterial
+        {
+            Shader = shader
+        };
+
+        _debugMesh = new MeshInstance3D
+        {
+            Name = "NavGridDebugShaderOverlay",
+            TopLevel = true,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = _debugMaterial
+        };
+
+        parent.AddChild(_debugMesh);
+    }
+
+    private void UpdateOverlayMesh()
+    {
+        MeshInstance3D groundMesh = ResolveGroundMesh();
+        if (groundMesh?.Mesh != null)
+        {
+            UpdateGroundShapedOverlayMesh(groundMesh);
+            return;
+        }
+
+        UpdateFlatOverlayMesh();
+    }
+
+    private void UpdateGroundShapedOverlayMesh(MeshInstance3D groundMesh)
+    {
+        if (_overlayMeshSource != groundMesh.Mesh)
+        {
+            _debugMesh.Mesh = groundMesh.Mesh;
+            _overlayMeshSource = groundMesh.Mesh;
+            _meshSize = Vector2.Zero;
+        }
+
+        Transform3D groundTransform = groundMesh.GlobalTransform;
+        groundTransform.Origin += groundTransform.Basis.Y.Normalized() * OverlayY;
+        _debugMesh.GlobalTransform = groundTransform;
+        _debugMesh.Visible = true;
+    }
+
+    private void UpdateFlatOverlayMesh()
+    {
+        float worldWidth = _width * _cellSize;
+        float worldHeight = _height * _cellSize;
+        float centerX = _gridOrigin.X + worldWidth * 0.5f;
+        float centerZ = _gridOrigin.Y + worldHeight * 0.5f;
+        Vector2 meshSize = new(worldWidth, worldHeight);
+
+        if (_debugMesh.Mesh is not PlaneMesh || _meshSize != meshSize)
+        {
+            _debugMesh.Mesh = new PlaneMesh
+            {
+                Size = meshSize
+            };
+
+            _meshSize = meshSize;
+            _overlayMeshSource = _debugMesh.Mesh;
+        }
+
+        _debugMesh.GlobalTransform = new Transform3D(Basis.Identity, new Vector3(centerX, OverlayY, centerZ));
+        _debugMesh.Visible = true;
+    }
+
+    private MeshInstance3D ResolveGroundMesh()
+    {
+        if (_parent == null || !GodotObject.IsInstanceValid(_parent))
+            return null;
+
+        Node currentScene = _parent.GetTree()?.CurrentScene;
+        return currentScene?.GetNodeOrNull<MeshInstance3D>(GroundNodePath);
+    }
+
+    private void UpdateDataTexture()
+    {
+        Vector2I textureSize = new(Math.Max(1, _width), Math.Max(1, _height));
+        Image dataImage = Image.CreateEmpty(textureSize.X, textureSize.Y, false, Image.Format.Rgba8);
+        dataImage.Fill(NeutralDataColor);
+
+        if (_cells != null)
+        {
+            foreach (NavCell cell in _cells)
+            {
+                if (!IsCellInTexture(cell.Position))
+                    continue;
+
+                Color data = EncodeCellData(cell);
+                dataImage.SetPixel(cell.Position.X, cell.Position.Y, data);
+            }
+        }
+
+        if (_targetVisible && _targetCell.HasValue && IsCellInTexture(_targetCell.Value))
+        {
+            Color data = dataImage.GetPixel(_targetCell.Value.X, _targetCell.Value.Y);
+            data.A = 1.0f;
+            dataImage.SetPixel(_targetCell.Value.X, _targetCell.Value.Y, data);
+        }
+
+        if (_navDataTexture == null || _navDataTextureSize != textureSize)
+        {
+            _navDataTexture = ImageTexture.CreateFromImage(dataImage);
+            _navDataTextureSize = textureSize;
+            _debugMaterial.SetShaderParameter("nav_data", _navDataTexture);
+            return;
+        }
+
+        _navDataTexture.Update(dataImage);
+    }
+
+    private Color EncodeCellData(NavCell cell)
+    {
+        float blocked = cell.Walkable ? 0.0f : 1.0f;
+        Vector2I direction = ClampDirection(cell.Direction);
+
+        return new Color(
+            blocked,
+            (direction.X + 1) * 0.5f,
+            (direction.Y + 1) * 0.5f,
+            0.0f
         );
+    }
 
-        float radius = cellSize * 0.175f;
-        float y = 0.08f;
+    private static Vector2I ClampDirection(Vector2I direction)
+    {
+        return new Vector2I(
+            direction.X < 0 ? -1 : direction.X > 0 ? 1 : 0,
+            direction.Y < 0 ? -1 : direction.Y > 0 ? 1 : 0
+        );
+    }
 
-        Vector2 top = center + new Vector2(0, -radius);
-        Vector2 right = center + new Vector2(radius, 0);
-        Vector2 bottom = center + new Vector2(0, radius);
-        Vector2 left = center + new Vector2(-radius, 0);
+    private bool IsCellInTexture(Vector2I cell)
+    {
+        return cell.X >= 0 && cell.Y >= 0 && cell.X < _width && cell.Y < _height;
+    }
 
-        AddLine(mesh, top, right, y);
-        AddLine(mesh, right, bottom, y);
-        AddLine(mesh, bottom, left, y);
-        AddLine(mesh, left, top, y);
+    private void UpdateShaderParameters()
+    {
+        float worldWidth = Math.Max(1, _width * _cellSize);
+        float worldHeight = Math.Max(1, _height * _cellSize);
+
+        _debugMaterial.SetShaderParameter("cell_count", new Vector2(Math.Max(1, _width), Math.Max(1, _height)));
+        _debugMaterial.SetShaderParameter("grid_origin", new Vector2(_gridOrigin.X, _gridOrigin.Y));
+        _debugMaterial.SetShaderParameter("grid_world_size", new Vector2(worldWidth, worldHeight));
+        _debugMaterial.SetShaderParameter("show_grid", _gridLinesVisible);
+        _debugMaterial.SetShaderParameter("show_blocked", _blockedCellsVisible);
+        _debugMaterial.SetShaderParameter("show_flow", _flowArrowsVisible);
+        _debugMaterial.SetShaderParameter("show_target", _targetVisible);
+        UpdateShaderColors();
+        _debugMaterial.SetShaderParameter("grid_line_width", GridLineWidthWorld / _cellSize);
+        _debugMaterial.SetShaderParameter("marker_line_width", MarkerLineWidthWorld / _cellSize);
+    }
+
+    private void UpdateShaderColors()
+    {
+        if (_debugMaterial == null)
+            return;
+
+        _debugMaterial.SetShaderParameter("grid_color", _gridColor);
+        _debugMaterial.SetShaderParameter("blocked_color", _blockedColor);
+        _debugMaterial.SetShaderParameter("flow_color", _flowColor);
+        _debugMaterial.SetShaderParameter("target_color", _targetColor);
+    }
+
+    private void ClearOverlay()
+    {
+        _debugMaterial = null;
+        _navDataTexture = null;
+        _navDataTextureSize = Vector2I.Zero;
+        _meshSize = Vector2.Zero;
+        _overlayMeshSource = null;
+
+        if (_debugMesh == null || !GodotObject.IsInstanceValid(_debugMesh))
+        {
+            _debugMesh = null;
+            return;
+        }
+
+        _debugMesh.QueueFree();
+        _debugMesh = null;
     }
 }

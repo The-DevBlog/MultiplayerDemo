@@ -51,6 +51,9 @@ script = ExtResource("3_vlv1q")
 unique_name_in_owner = true
 script = ExtResource("5_vx41i")
 _drawNavGrid = true
+GridColor = Color(1, 1, 1, 1)
+FlowColor = Color(1, 1, 1, 1)
+TargetColor = Color(0.9088366, 0.9396983, 0, 1)
 
 [node name="Obstacle" type="MeshInstance3D" parent="." unique_id=1489313604 groups=["nav_obstacles"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.956303, 1.1073084, 0.20298767)
