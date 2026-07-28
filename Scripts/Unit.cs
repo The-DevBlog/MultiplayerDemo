@@ -54,9 +54,7 @@ public partial class Unit : Node3D
 		_isSelected = selected;
 
 		if (_mesh == null)
-		{
 			return;
-		}
 
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
