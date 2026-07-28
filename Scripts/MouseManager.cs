@@ -267,6 +267,11 @@ public partial class MouseManager : Node
 
 		Vector3 rayOrigin = camera.ProjectRayOrigin(screenPosition);
 		Vector3 rayDirection = camera.ProjectRayNormal(screenPosition);
+		if (_navGrid != null && _navGrid.TryProjectToTerrain(rayOrigin, rayDirection, out groundPosition))
+		{
+			return true;
+		}
+
 		if (Mathf.IsZeroApprox(rayDirection.Y))
 		{
 			return false;

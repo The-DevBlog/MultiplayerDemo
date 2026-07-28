@@ -9,6 +9,8 @@ public partial class NavGrid : Node
     [Export] public Color BlockedColor { get; set; } = new(1.0f, 0.05f, 0.05f, 0.9f);
     [Export] public Color FlowColor { get; set; } = new(0.1f, 0.75f, 1.0f, 0.9f);
     [Export] public Color TargetColor { get; set; } = new(1.0f, 0.9f, 0.1f, 1.0f);
+    [Export] private uint _terrainCollisionMask = uint.MaxValue;
+    [Export] private float _terrainRaycastHeight = 1000.0f;
     private int _width { get; set; }
     private int _height { get; set; }
     private Vector2I _gridOrigin;
@@ -108,9 +110,28 @@ public partial class NavGrid : Node
     {
         float x = _gridOrigin.X + cellPosition.X * CellSize + CellSize / 2.0f;
         float z = _gridOrigin.Y + cellPosition.Y * CellSize + CellSize / 2.0f;
-        float y = 0;
+        float y = GetTerrainHeight(new Vector2(x, z));
 
         return new Vector3(x, y, z);
+    }
+
+    public float GetTerrainHeight(Vector2 worldPosition)
+    {
+        if (TryGetTerrainPoint(worldPosition, out Vector3 terrainPoint))
+            return terrainPoint.Y;
+
+        return GetFallbackGroundHeight();
+    }
+
+    public bool TryProjectToTerrain(Vector3 rayOrigin, Vector3 rayDirection, out Vector3 terrainPoint)
+    {
+        terrainPoint = default;
+
+        if (rayDirection == Vector3.Zero)
+            return false;
+
+        Vector3 rayEnd = rayOrigin + rayDirection.Normalized() * _terrainRaycastHeight * 2.0f;
+        return TryRaycastTerrain(rayOrigin, rayEnd, out terrainPoint);
     }
 
     public NavCell GetCell(Vector2I cellPosition)
@@ -401,6 +422,42 @@ public partial class NavGrid : Node
 
         bool isDiagonal = delta.X != 0 && delta.Y != 0;
         return isDiagonal ? _diagonalCost : _straightCost;
+    }
+
+    private bool TryGetTerrainPoint(Vector2 worldPosition, out Vector3 terrainPoint)
+    {
+        float fallbackHeight = GetFallbackGroundHeight();
+        Vector3 from = new Vector3(worldPosition.X, fallbackHeight + _terrainRaycastHeight, worldPosition.Y);
+        Vector3 to = new Vector3(worldPosition.X, fallbackHeight - _terrainRaycastHeight, worldPosition.Y);
+
+        return TryRaycastTerrain(from, to, out terrainPoint);
+    }
+
+    private bool TryRaycastTerrain(Vector3 from, Vector3 to, out Vector3 terrainPoint)
+    {
+        terrainPoint = default;
+
+        World3D world = GetViewport()?.World3D;
+        if (world == null)
+            return false;
+
+        PhysicsRayQueryParameters3D query = PhysicsRayQueryParameters3D.Create(from, to);
+        query.CollideWithAreas = false;
+        query.CollideWithBodies = true;
+        query.CollisionMask = _terrainCollisionMask;
+
+        Godot.Collections.Dictionary result = world.DirectSpaceState.IntersectRay(query);
+        if (result.Count == 0)
+            return false;
+
+        terrainPoint = (Vector3)result["position"];
+        return true;
+    }
+
+    private float GetFallbackGroundHeight()
+    {
+        Node currentScene = GetTree()?.CurrentScene;
+        return currentScene?.GetNodeOrNull<Node3D>("%Ground")?.GlobalPosition.Y ?? 0.0f;
     }
 
     private void ResetIntegrationCosts()

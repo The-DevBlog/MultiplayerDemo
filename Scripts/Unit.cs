@@ -104,8 +104,7 @@ public partial class Unit : Node3D
 
 		if (toWaypoint.Length() <= distanceThisFrame)
 		{
-			float y = GlobalPosition.Y;
-			GlobalPosition = new Vector3(_currentWaypoint.X, y, _currentWaypoint.Z);
+			GlobalPosition = _currentWaypoint;
 
 			_hasWaypoint = false;
 
@@ -117,11 +116,13 @@ public partial class Unit : Node3D
 
 		Vector2 moveDirection = toWaypoint.Normalized();
 		Vector2 moveAmount = moveDirection * distanceThisFrame;
+		Vector2 nextFlatPosition = currentFlatPos + moveAmount;
+		float nextY = _navGrid.GetTerrainHeight(nextFlatPosition);
 
 		GlobalPosition = new Vector3(
-			GlobalPosition.X + moveAmount.X,
-			GlobalPosition.Y,
-			GlobalPosition.Z + moveAmount.Y
+			nextFlatPosition.X,
+			nextY,
+			nextFlatPosition.Y
 		);
 	}
 }
