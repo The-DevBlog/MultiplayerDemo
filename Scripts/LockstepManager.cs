@@ -16,21 +16,22 @@ public partial class LockstepManager : Node
 	private NetworkManager _networkManager;
 	private PlayerManager _playerManager;
 	private bool _simulationRunning;
+	private LocalResources _localResources;
 
 	public override void _Ready()
 	{
 		_networkManager = NetworkManager.Instance;
 		_playerManager = PlayerManager.Instance;
+		_localResources = GetTree().CurrentScene as LocalResources;
+
+		if (_localResources == null)
+			GD.PrintErr("[LockstepManager.Ready()] Could not find LocalResources");
 
 		_tickDuration = 1.0 / _tickRate;
 		_desyncInterval = _tickRate * 3;
 
 		// load units dictionary
-		foreach (Node node in GetTree().GetNodesInGroup("units"))
-		{
-			if (node is Unit unit)
-				_units[unit.UnitID] = unit;
-		}
+		RefreshUnits();
 
 		RpcId(1, nameof(NotifyReady), _playerManager.Player.PeerID);
 	}
@@ -105,7 +106,24 @@ public partial class LockstepManager : Node
 	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
 	private void StartSimulation()
 	{
+		_localResources.CreateUnits();
+		RefreshUnits();
+		GD.Print($"Peer {Multiplayer.GetUniqueId()} units: {_units.Count}");
 		_simulationRunning = true;
+	}
+
+	private void RefreshUnits()
+	{
+		_units.Clear();
+
+		foreach (Node node in GetTree().GetNodesInGroup("units"))
+		{
+			if (node is Unit unit)
+			{
+				GD.Print("Unit ID: " + unit.UnitID);
+				_units[unit.UnitID] = unit;
+			}
+		}
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
