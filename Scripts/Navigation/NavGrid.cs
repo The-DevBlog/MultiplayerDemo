@@ -82,10 +82,9 @@ public partial class NavGrid : Node
 		}
 	}
 
-	public void BuildField(Vector2I startPos, Vector2I targetPos)
+	public void BuildField(List<Vector2I> startPositions, Vector2I targetPos)
 	{
-		List<NavPortal> sectorPath = FindSectorPortalPath(startPos, targetPos);
-		HashSet<Vector2I> allowedSectors = BuildAllowedSectorSet(startPos, targetPos, sectorPath);
+		HashSet<Vector2I> allowedSectors = BuildAllowedSectorSet(startPositions, targetPos);
 
 		bool isIntegrationFieldBuilt = BuildIntegrationField(targetPos, allowedSectors);
 		if (isIntegrationFieldBuilt)
@@ -311,23 +310,27 @@ public partial class NavGrid : Node
 		}
 	}
 
-	private HashSet<Vector2I> BuildAllowedSectorSet(Vector2I startCellPos, Vector2I targetCellPos, List<NavPortal> sectorPath)
+	private HashSet<Vector2I> BuildAllowedSectorSet(List<Vector2I> startCellPositions, Vector2I targetCellPos)
 	{
 		var allowedSectors = new HashSet<Vector2I>();
 
-		NavSector startSector = GetSectorForCell(startCellPos);
 		NavSector targetSector = GetSectorForCell(targetCellPos);
-
-		if (startSector != null)
-			allowedSectors.Add(startSector.Position);
-
 		if (targetSector != null)
 			allowedSectors.Add(targetSector.Position);
 
-		foreach (NavPortal portal in sectorPath)
+		foreach (Vector2I startCellPos in startCellPositions)
 		{
-			allowedSectors.Add(portal.FromSector);
-			allowedSectors.Add(portal.ToSector);
+			List<NavPortal> sectorPath = FindSectorPortalPath(startCellPos, targetCellPos);
+
+			NavSector startSector = GetSectorForCell(startCellPos);
+			if (startSector != null)
+				allowedSectors.Add(startSector.Position);
+
+			foreach (NavPortal portal in sectorPath)
+			{
+				allowedSectors.Add(portal.FromSector);
+				allowedSectors.Add(portal.ToSector);
+			}
 		}
 
 		return allowedSectors;

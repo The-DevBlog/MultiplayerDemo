@@ -59,15 +59,22 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	public void MoveToCell(Vector2I targetCellPos)
+	// public void MoveToCell(Vector2I targetCellPos)
+	// {
+	// 	Vector2I startCellPos = _navGrid.WorldToCell(GlobalPosition);
+	// 	_navGrid.BuildField(startCellPos, targetCellPos);
+	// 	_isMoving = true;
+	// 	_hasWaypoint = false;
+	// 	_stopAfterWaypoint = false;
+
+	// 	// GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
+	// }
+
+	public void FollowFlowField()
 	{
-		Vector2I startCellPos = _navGrid.WorldToCell(GlobalPosition);
-		_navGrid.BuildField(startCellPos, targetCellPos);
 		_isMoving = true;
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
-
-		// GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
 	}
 
 	private void Move(double delta)

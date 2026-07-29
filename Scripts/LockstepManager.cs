@@ -164,15 +164,27 @@ public partial class LockstepManager : Node
 
 			foreach (var cmd in commands)
 			{
+				var units = new List<Unit>();
 				foreach (var id in cmd.UnitIDs)
 				{
 					if (_units.TryGetValue(id, out Unit unit))
-					{
-						// Vector3I newPosition = new Vector3I(cmd.Position.X, 0, cmd.Position.Y);
-						// unit.MoveTo(newPosition);
-						unit.MoveToCell(cmd.Position);
-					}
+						units.Add(unit);
 				}
+
+				if (units.Count == 0)
+					continue;
+
+				NavGrid navGrid = GetTree().CurrentScene.GetNode<NavGrid>("%NavGrid");
+				var startCells = new List<Vector2I>();
+
+				foreach (Unit unit in units)
+					startCells.Add(navGrid.WorldToCell(unit.GlobalPosition));
+
+				navGrid.BuildField(startCells, cmd.Position);
+
+				foreach (Unit unit in units)
+					unit.FollowFlowField();
+
 			}
 
 			_moveCommands.Remove(_currentTick);
