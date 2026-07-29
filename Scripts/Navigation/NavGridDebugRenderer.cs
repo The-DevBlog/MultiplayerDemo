@@ -192,7 +192,8 @@ public class NavGridDebugRenderer
 
         _debugMaterial = new ShaderMaterial
         {
-            Shader = shader
+            Shader = shader,
+            RenderPriority = 100
         };
 
         _debugMesh = new MeshInstance3D
@@ -228,7 +229,7 @@ public class NavGridDebugRenderer
         }
 
         Transform3D groundTransform = groundMesh.GlobalTransform;
-        groundTransform.Origin += groundTransform.Basis.Y.Normalized() * OverlayY;
+        groundTransform.Origin += Vector3.Up * OverlayY;
         _debugMesh.GlobalTransform = groundTransform;
         _debugMesh.Visible = true;
     }

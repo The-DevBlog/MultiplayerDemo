@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled, blend_mix;
+render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
 
 uniform sampler2D nav_data : filter_nearest, repeat_disable;
 uniform vec2 cell_count = vec2(1.0, 1.0);
