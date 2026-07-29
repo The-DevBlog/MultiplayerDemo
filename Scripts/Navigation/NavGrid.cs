@@ -13,9 +13,12 @@ public partial class NavGrid : Node
 	[Export] private float _terrainRaycastHeight = 1000.0f;
 	private int _width { get; set; }
 	private int _height { get; set; }
+	private int _sectorSize = 16;
+	private int _sectorWidth;
+	private int _sectorHeight;
 	private Vector2I _gridOrigin;
 	private NavCell[,] _cells;
-	private int CellSize = 5;
+	private int CellSize = 2;
 	private int _diagonalCost = 14;
 	private int _straightCost = 10;
 	private readonly NavGridDebugRenderer _debugRenderer = new();
@@ -44,6 +47,10 @@ public partial class NavGrid : Node
 		{
 			_width = _localResources.MapSize.X / CellSize;
 			_height = _localResources.MapSize.Y / CellSize;
+
+			_sectorWidth = Mathf.CeilToInt(_width / (float)_sectorSize);
+			_sectorHeight = Mathf.CeilToInt(_height / (float)_sectorSize);
+
 			_gridOrigin = new Vector2I(-_localResources.MapSize.X / 2, -_localResources.MapSize.Y / 2);
 		}
 
@@ -113,6 +120,14 @@ public partial class NavGrid : Node
 		float y = GetTerrainHeight(new Vector2(x, z));
 
 		return new Vector3(x, y, z);
+	}
+
+	private Vector2I CellToSectorPosition(Vector2I cellPosition)
+	{
+		int sectorX = cellPosition.X / _sectorSize;
+		int sectorY = cellPosition.Y / _sectorSize;
+
+		return new Vector2I(sectorX, sectorY);
 	}
 
 	public float GetTerrainHeight(Vector2 worldPosition)

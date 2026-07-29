@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using Godot;
 using Godot.Collections;
 
@@ -33,6 +34,12 @@ public partial class LockstepManager : Node
 		// load units dictionary
 		RefreshUnits();
 
+		// RpcId(1, nameof(NotifyReady), _playerManager.Player.PeerID);
+		CallDeferred(nameof(StartReadyHandshake));
+	}
+
+	private void StartReadyHandshake()
+	{
 		RpcId(1, nameof(NotifyReady), _playerManager.Player.PeerID);
 	}
 
@@ -108,7 +115,6 @@ public partial class LockstepManager : Node
 	{
 		_localResources.CreateUnits();
 		RefreshUnits();
-		GD.Print($"Peer {Multiplayer.GetUniqueId()} units: {_units.Count}");
 		_simulationRunning = true;
 	}
 
@@ -120,7 +126,6 @@ public partial class LockstepManager : Node
 		{
 			if (node is Unit unit)
 			{
-				GD.Print("Unit ID: " + unit.UnitID);
 				_units[unit.UnitID] = unit;
 			}
 		}
