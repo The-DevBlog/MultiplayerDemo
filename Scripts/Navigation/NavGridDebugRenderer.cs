@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 public class NavGridDebugRenderer
@@ -16,12 +17,15 @@ public class NavGridDebugRenderer
     private Color _sectorColor = new(1.0f, 0.55f, 0.1f, 0.9f);
     private Color _blockedColor = new(1.0f, 0.05f, 0.05f, 0.9f);
     private Color _flowColor = new(0.1f, 0.75f, 1.0f, 0.9f);
+    private Color _portalColor = new(0.2f, 1.0f, 0.35f, 0.95f);
     private Color _targetColor = new(1.0f, 0.9f, 0.1f, 1.0f);
 
     private MeshInstance3D _debugMesh;
     private ShaderMaterial _debugMaterial;
     private ImageTexture _navDataTexture;
     private Vector2I _navDataTextureSize;
+    private ImageTexture _portalDataTexture;
+    private Vector2I _portalDataTextureSize;
     private Vector2 _meshSize;
     private Mesh _overlayMeshSource;
     private Node _parent;
@@ -31,15 +35,17 @@ public class NavGridDebugRenderer
     private int _cellSize;
     private int _sectorSize = 1;
     private NavCell[,] _cells;
+    private HashSet<Vector2I> _portalCells = new();
     private Vector2I? _targetCell;
     private bool _gridLinesVisible;
     private bool _blockedCellsVisible;
     private bool _flowArrowsVisible;
+    private bool _portalCellsVisible;
     private bool _targetVisible;
 
-    public void SetColors(Color gridColor, Color blockedColor, Color flowColor, Color targetColor, Color sectorColor)
+    public void SetColors(Color gridColor, Color blockedColor, Color flowColor, Color targetColor, Color sectorColor, Color portalColor)
     {
-        if (_gridColor == gridColor && _blockedColor == blockedColor && _flowColor == flowColor && _targetColor == targetColor && _sectorColor == sectorColor)
+        if (_gridColor == gridColor && _blockedColor == blockedColor && _flowColor == flowColor && _targetColor == targetColor && _sectorColor == sectorColor && _portalColor == portalColor)
             return;
 
         _gridColor = gridColor;
@@ -47,6 +53,7 @@ public class NavGridDebugRenderer
         _flowColor = flowColor;
         _targetColor = targetColor;
         _sectorColor = sectorColor;
+        _portalColor = portalColor;
 
         UpdateShaderColors();
     }
@@ -98,6 +105,15 @@ public class NavGridDebugRenderer
         RebuildOverlay(parent);
     }
 
+    public void DrawPortalCells(Node parent, Vector2I gridOrigin, int width, int height, int cellSize, NavSector[,] sectors)
+    {
+        SetGridMetrics(gridOrigin, width, height, cellSize);
+        _portalCells = BuildPortalCellSet(sectors);
+        _portalCellsVisible = true;
+
+        RebuildOverlay(parent);
+    }
+
     public void DrawTarget(Node parent, Vector2I gridOrigin, int cellSize, Vector2I? targetCell)
     {
         _gridOrigin = gridOrigin;
@@ -113,7 +129,9 @@ public class NavGridDebugRenderer
         _gridLinesVisible = false;
         _blockedCellsVisible = false;
         _flowArrowsVisible = false;
+        _portalCellsVisible = false;
         _targetVisible = false;
+        _portalCells.Clear();
         _targetCell = null;
 
         ClearOverlay();
@@ -134,6 +152,13 @@ public class NavGridDebugRenderer
     public void ClearFlowArrows()
     {
         _flowArrowsVisible = false;
+        RebuildOverlay();
+    }
+
+    public void ClearPortalCells()
+    {
+        _portalCellsVisible = false;
+        _portalCells.Clear();
         RebuildOverlay();
     }
 
@@ -182,12 +207,13 @@ public class NavGridDebugRenderer
 
         UpdateOverlayMesh();
         UpdateDataTexture();
+        UpdatePortalDataTexture();
         UpdateShaderParameters();
     }
 
     private bool HasVisibleLayer()
     {
-        return _gridLinesVisible || _blockedCellsVisible || _flowArrowsVisible || _targetVisible;
+        return _gridLinesVisible || _blockedCellsVisible || _flowArrowsVisible || _portalCellsVisible || _targetVisible;
     }
 
     private void EnsureOverlay(Node parent)
@@ -314,6 +340,54 @@ public class NavGridDebugRenderer
         _navDataTexture.Update(dataImage);
     }
 
+    private void UpdatePortalDataTexture()
+    {
+        Vector2I textureSize = new(Math.Max(1, _width), Math.Max(1, _height));
+        Image dataImage = Image.CreateEmpty(textureSize.X, textureSize.Y, false, Image.Format.Rgba8);
+        dataImage.Fill(Colors.Black);
+
+        if (_portalCellsVisible)
+        {
+            foreach (Vector2I portalCell in _portalCells)
+            {
+                if (IsCellInTexture(portalCell))
+                    dataImage.SetPixel(portalCell.X, portalCell.Y, Colors.White);
+            }
+        }
+
+        if (_portalDataTexture == null || _portalDataTextureSize != textureSize)
+        {
+            _portalDataTexture = ImageTexture.CreateFromImage(dataImage);
+            _portalDataTextureSize = textureSize;
+            _debugMaterial.SetShaderParameter("portal_data", _portalDataTexture);
+            return;
+        }
+
+        _portalDataTexture.Update(dataImage);
+    }
+
+    private static HashSet<Vector2I> BuildPortalCellSet(NavSector[,] sectors)
+    {
+        var portalCells = new HashSet<Vector2I>();
+
+        if (sectors == null)
+            return portalCells;
+
+        foreach (NavSector sector in sectors)
+        {
+            if (sector == null)
+                continue;
+
+            foreach (NavPortal portal in sector.Portals)
+            {
+                portalCells.Add(portal.FromCell);
+                portalCells.Add(portal.ToCell);
+            }
+        }
+
+        return portalCells;
+    }
+
     private Color EncodeCellData(NavCell cell)
     {
         float blocked = cell.Walkable ? 0.0f : 1.0f;
@@ -352,6 +426,7 @@ public class NavGridDebugRenderer
         _debugMaterial.SetShaderParameter("show_sectors", _gridLinesVisible);
         _debugMaterial.SetShaderParameter("show_blocked", _blockedCellsVisible);
         _debugMaterial.SetShaderParameter("show_flow", _flowArrowsVisible);
+        _debugMaterial.SetShaderParameter("show_portals", _portalCellsVisible);
         _debugMaterial.SetShaderParameter("show_target", _targetVisible);
         _debugMaterial.SetShaderParameter("sector_size", (float)_sectorSize);
         UpdateShaderColors();
@@ -369,6 +444,7 @@ public class NavGridDebugRenderer
         _debugMaterial.SetShaderParameter("sector_color", _sectorColor);
         _debugMaterial.SetShaderParameter("blocked_color", _blockedColor);
         _debugMaterial.SetShaderParameter("flow_color", _flowColor);
+        _debugMaterial.SetShaderParameter("portal_color", _portalColor);
         _debugMaterial.SetShaderParameter("target_color", _targetColor);
     }
 
@@ -377,6 +453,8 @@ public class NavGridDebugRenderer
         _debugMaterial = null;
         _navDataTexture = null;
         _navDataTextureSize = Vector2I.Zero;
+        _portalDataTexture = null;
+        _portalDataTextureSize = Vector2I.Zero;
         _meshSize = Vector2.Zero;
         _overlayMeshSource = null;
 

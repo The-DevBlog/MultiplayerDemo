@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
 
 uniform sampler2D nav_data : filter_nearest, repeat_disable;
+uniform sampler2D portal_data : filter_nearest, repeat_disable;
 uniform vec2 cell_count = vec2(1.0, 1.0);
 uniform vec2 grid_origin = vec2(0.0, 0.0);
 uniform vec2 grid_world_size = vec2(1.0, 1.0);
@@ -10,12 +11,14 @@ uniform bool show_grid = true;
 uniform bool show_sectors = true;
 uniform bool show_blocked = false;
 uniform bool show_flow = false;
+uniform bool show_portals = false;
 uniform bool show_target = false;
 
 uniform vec4 grid_color : source_color = vec4(1.0, 1.0, 1.0, 0.35);
 uniform vec4 sector_color : source_color = vec4(1.0, 0.55, 0.1, 0.9);
 uniform vec4 blocked_color : source_color = vec4(1.0, 0.05, 0.05, 0.9);
 uniform vec4 flow_color : source_color = vec4(0.1, 0.75, 1.0, 0.9);
+uniform vec4 portal_color : source_color = vec4(0.2, 1.0, 0.35, 0.95);
 uniform vec4 target_color : source_color = vec4(1.0, 0.9, 0.1, 1.0);
 
 uniform float sector_size = 16.0;
@@ -103,6 +106,10 @@ float target_alpha(vec2 cell_uv) {
 	return a;
 }
 
+float portal_alpha(vec2 cell_uv) {
+	return padded_cell_mask(cell_uv, 0.22);
+}
+
 void fragment() {
 	vec2 overlay_uv = (world_position.xz - grid_origin) / grid_world_size;
 	if (overlay_uv.x < 0.0 || overlay_uv.y < 0.0 || overlay_uv.x > 1.0 || overlay_uv.y > 1.0) {
@@ -114,6 +121,7 @@ void fragment() {
 	vec2 cell_index = clamp(floor(scaled_uv), vec2(0.0), cell_count - vec2(1.0));
 	vec2 data_uv = (cell_index + vec2(0.5)) / cell_count;
 	vec4 data = texture(nav_data, data_uv);
+	vec4 portal_data_sample = texture(portal_data, data_uv);
 
 	vec4 color = vec4(0.0);
 
@@ -141,9 +149,13 @@ void fragment() {
 		color = blend_layer(color, blocked_color, blocked_x_alpha(cell_uv));
 	}
 
-	if (show_flow) {
+	if (show_flow && portal_data_sample.r <= 0.5) {
 		vec2 direction = round(data.gb * 2.0 - 1.0);
 		color = blend_layer(color, flow_color, flow_arrow_alpha(cell_uv, direction));
+	}
+
+	if (show_portals && portal_data_sample.r > 0.5) {
+		color = blend_layer(color, portal_color, portal_alpha(cell_uv));
 	}
 
 	if (show_target && data.a > 0.5) {

@@ -9,6 +9,7 @@ public partial class NavGrid : Node
     [Export] public Color SectorColor { get; set; } = new(1.0f, 0.55f, 0.1f, 0.9f);
     [Export] public Color BlockedColor { get; set; } = new(1.0f, 0.05f, 0.05f, 0.9f);
     [Export] public Color FlowColor { get; set; } = new(0.1f, 0.75f, 1.0f, 0.9f);
+    [Export] public Color PortalColor { get; set; } = new(0.2f, 1.0f, 0.35f, 0.95f);
     [Export] public Color TargetColor { get; set; } = new(1.0f, 0.9f, 0.1f, 1.0f);
     [Export] private uint _terrainCollisionMask = uint.MaxValue;
     [Export] private float _terrainRaycastHeight = 1000.0f;
@@ -59,17 +60,16 @@ public partial class NavGrid : Node
         InitGrid();
         InitSectors();
         LoadObstacles();
-
-        NavSector sector = GetSectorForCell(new Vector2I(149, 149));
-        GD.Print($"{sector.Position}: {sector.MinCell} -> {sector.MaxCell}");
+        BuildSectorPortals();
 
         _debugRenderer.SetSectorSize(_sectorSize);
-        _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor);
+        _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
 
         if (_drawNavGrid)
         {
             _debugRenderer.DrawGridLines(this, _gridOrigin, _width, _height, CellSize);
             _debugRenderer.DrawBlockedCells(this, _gridOrigin, CellSize, _cells);
+            _debugRenderer.DrawPortalCells(this, _gridOrigin, _width, _height, CellSize, _sectors);
         }
     }
 
@@ -78,7 +78,7 @@ public partial class NavGrid : Node
         if (_drawNavGrid)
         {
             _debugRenderer.SetSectorSize(_sectorSize);
-            _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor);
+            _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
         }
     }
 
@@ -88,11 +88,12 @@ public partial class NavGrid : Node
         if (isIntegrationFieldBuilt)
         {
             BuildFlowField();
-            _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor);
+            _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
 
             if (_drawNavGrid)
             {
                 _debugRenderer.DrawFlowArrows(this, _gridOrigin, CellSize, _cells);
+                _debugRenderer.DrawPortalCells(this, _gridOrigin, _width, _height, CellSize, _sectors);
                 _debugRenderer.DrawTarget(this, _gridOrigin, CellSize, targetPos);
             }
         }
@@ -211,6 +212,98 @@ public partial class NavGrid : Node
             {
                 Vector2I sectorPos = new Vector2I(x, y);
                 _sectors[x, y] = CreateSector(sectorPos);
+            }
+        }
+    }
+
+    private void BuildSectorPortals()
+    {
+        foreach (NavSector sector in _sectors)
+            sector.Portals.Clear();
+
+        for (int sectorX = 0; sectorX < _sectorWidth; sectorX++)
+        {
+            for (int sectorY = 0; sectorY < _sectorHeight; sectorY++)
+            {
+                NavSector sector = _sectors[sectorX, sectorY];
+
+                // EAST
+                NavSector eastSector = GetSector(sector.Position + new Vector2I(1, 0));
+                if (eastSector != null)
+                {
+                    int leftX = sector.MaxCell.X;
+                    int rightX = eastSector.MinCell.X;
+
+                    int startY = Math.Max(sector.MinCell.Y, eastSector.MinCell.Y);
+                    int endY = Math.Min(sector.MaxCell.Y, eastSector.MaxCell.Y);
+
+                    for (int borderY = startY; borderY <= endY; borderY++)
+                    {
+                        Vector2I leftCellPos = new Vector2I(leftX, borderY);
+                        Vector2I rightCellPos = new Vector2I(rightX, borderY);
+
+                        NavCell leftCell = GetCell(leftCellPos);
+                        NavCell rightCell = GetCell(rightCellPos);
+
+                        if (leftCell != null && rightCell != null && leftCell.Walkable && rightCell.Walkable)
+                        {
+                            sector.Portals.Add(new NavPortal
+                            {
+                                FromSector = sector.Position,
+                                ToSector = eastSector.Position,
+                                FromCell = leftCellPos,
+                                ToCell = rightCellPos
+                            });
+
+                            eastSector.Portals.Add(new NavPortal
+                            {
+                                FromSector = eastSector.Position,
+                                ToSector = sector.Position,
+                                FromCell = rightCellPos,
+                                ToCell = leftCellPos
+                            });
+                        }
+                    }
+                }
+
+                // SOUTH
+                NavSector southSector = GetSector(sector.Position + new Vector2I(0, 1));
+                if (southSector != null)
+                {
+                    int topY = sector.MaxCell.Y;
+                    int bottomY = southSector.MinCell.Y;
+
+                    int startX = Math.Max(sector.MinCell.X, southSector.MinCell.X);
+                    int endX = Math.Min(sector.MaxCell.X, southSector.MaxCell.X);
+
+                    for (int borderX = startX; borderX <= endX; borderX++)
+                    {
+                        Vector2I topCellPos = new Vector2I(borderX, topY);
+                        Vector2I bottomCellPos = new Vector2I(borderX, bottomY);
+
+                        NavCell topCell = GetCell(topCellPos);
+                        NavCell bottomCell = GetCell(bottomCellPos);
+
+                        if (topCell != null && bottomCell != null && topCell.Walkable && bottomCell.Walkable)
+                        {
+                            sector.Portals.Add(new NavPortal
+                            {
+                                FromSector = sector.Position,
+                                ToSector = southSector.Position,
+                                FromCell = topCellPos,
+                                ToCell = bottomCellPos
+                            });
+
+                            southSector.Portals.Add(new NavPortal
+                            {
+                                FromSector = southSector.Position,
+                                ToSector = sector.Position,
+                                FromCell = bottomCellPos,
+                                ToCell = topCellPos
+                            });
+                        }
+                    }
+                }
             }
         }
     }
