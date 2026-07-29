@@ -107,7 +107,7 @@ float target_alpha(vec2 cell_uv) {
 }
 
 float portal_alpha(vec2 cell_uv) {
-	return padded_cell_mask(cell_uv, 0.22);
+	return padded_cell_mask(cell_uv, 0.36);
 }
 
 void fragment() {

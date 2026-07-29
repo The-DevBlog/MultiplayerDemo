@@ -6,9 +6,9 @@ public class NavGridDebugRenderer
 {
     private const string ShaderPath = "res://Shaders/NavGridDebug.gdshader";
     private const float OverlayY = 0.08f;
-    private const float GridLineWidthWorld = 0.06f;
-    private const float SectorLineWidthWorld = 0.16f;
-    private const float MarkerLineWidthWorld = 0.125f;
+    private const float GridLineWidthWorld = 0.03f;
+    private const float SectorLineWidthWorld = 0.08f;
+    private const float MarkerLineWidthWorld = 0.0625f;
     private const string GroundNodePath = "%Ground";
 
     private static readonly Color NeutralDataColor = new(0.0f, 0.5f, 0.5f, 0.0f);
