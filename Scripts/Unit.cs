@@ -61,7 +61,8 @@ public partial class Unit : Node3D
 
 	public void MoveToCell(Vector2I targetCellPos)
 	{
-		_navGrid.BuildField(targetCellPos);
+		Vector2I startCellPos = _navGrid.WorldToCell(GlobalPosition);
+		_navGrid.BuildField(startCellPos, targetCellPos);
 		_isMoving = true;
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
