@@ -6,12 +6,14 @@ public class NavGridDebugRenderer
     private const string ShaderPath = "res://Shaders/NavGridDebug.gdshader";
     private const float OverlayY = 0.08f;
     private const float GridLineWidthWorld = 0.06f;
+    private const float SectorLineWidthWorld = 0.16f;
     private const float MarkerLineWidthWorld = 0.125f;
     private const string GroundNodePath = "%Ground";
 
     private static readonly Color NeutralDataColor = new(0.0f, 0.5f, 0.5f, 0.0f);
 
     private Color _gridColor = new(1.0f, 1.0f, 1.0f, 0.35f);
+    private Color _sectorColor = new(1.0f, 0.55f, 0.1f, 0.9f);
     private Color _blockedColor = new(1.0f, 0.05f, 0.05f, 0.9f);
     private Color _flowColor = new(0.1f, 0.75f, 1.0f, 0.9f);
     private Color _targetColor = new(1.0f, 0.9f, 0.1f, 1.0f);
@@ -27,6 +29,7 @@ public class NavGridDebugRenderer
     private int _width;
     private int _height;
     private int _cellSize;
+    private int _sectorSize = 1;
     private NavCell[,] _cells;
     private Vector2I? _targetCell;
     private bool _gridLinesVisible;
@@ -34,17 +37,26 @@ public class NavGridDebugRenderer
     private bool _flowArrowsVisible;
     private bool _targetVisible;
 
-    public void SetColors(Color gridColor, Color blockedColor, Color flowColor, Color targetColor)
+    public void SetColors(Color gridColor, Color blockedColor, Color flowColor, Color targetColor, Color sectorColor)
     {
-        if (_gridColor == gridColor && _blockedColor == blockedColor && _flowColor == flowColor && _targetColor == targetColor)
+        if (_gridColor == gridColor && _blockedColor == blockedColor && _flowColor == flowColor && _targetColor == targetColor && _sectorColor == sectorColor)
             return;
 
         _gridColor = gridColor;
         _blockedColor = blockedColor;
         _flowColor = flowColor;
         _targetColor = targetColor;
+        _sectorColor = sectorColor;
 
         UpdateShaderColors();
+    }
+
+    public void SetSectorSize(int sectorSize)
+    {
+        _sectorSize = Math.Max(1, sectorSize);
+
+        if (_debugMaterial != null)
+            UpdateShaderParameters();
     }
 
     public void DrawGrid(Node parent, Vector2I gridOrigin, int width, int height, int cellSize, NavCell[,] cells, Vector2I? targetCell = null)
@@ -337,11 +349,14 @@ public class NavGridDebugRenderer
         _debugMaterial.SetShaderParameter("grid_origin", new Vector2(_gridOrigin.X, _gridOrigin.Y));
         _debugMaterial.SetShaderParameter("grid_world_size", new Vector2(worldWidth, worldHeight));
         _debugMaterial.SetShaderParameter("show_grid", _gridLinesVisible);
+        _debugMaterial.SetShaderParameter("show_sectors", _gridLinesVisible);
         _debugMaterial.SetShaderParameter("show_blocked", _blockedCellsVisible);
         _debugMaterial.SetShaderParameter("show_flow", _flowArrowsVisible);
         _debugMaterial.SetShaderParameter("show_target", _targetVisible);
+        _debugMaterial.SetShaderParameter("sector_size", (float)_sectorSize);
         UpdateShaderColors();
         _debugMaterial.SetShaderParameter("grid_line_width", GridLineWidthWorld / _cellSize);
+        _debugMaterial.SetShaderParameter("sector_line_width", SectorLineWidthWorld / _cellSize);
         _debugMaterial.SetShaderParameter("marker_line_width", MarkerLineWidthWorld / _cellSize);
     }
 
@@ -351,6 +366,7 @@ public class NavGridDebugRenderer
             return;
 
         _debugMaterial.SetShaderParameter("grid_color", _gridColor);
+        _debugMaterial.SetShaderParameter("sector_color", _sectorColor);
         _debugMaterial.SetShaderParameter("blocked_color", _blockedColor);
         _debugMaterial.SetShaderParameter("flow_color", _flowColor);
         _debugMaterial.SetShaderParameter("target_color", _targetColor);

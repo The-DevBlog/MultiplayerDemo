@@ -7,16 +7,20 @@ uniform vec2 grid_origin = vec2(0.0, 0.0);
 uniform vec2 grid_world_size = vec2(1.0, 1.0);
 
 uniform bool show_grid = true;
+uniform bool show_sectors = true;
 uniform bool show_blocked = false;
 uniform bool show_flow = false;
 uniform bool show_target = false;
 
 uniform vec4 grid_color : source_color = vec4(1.0, 1.0, 1.0, 0.35);
+uniform vec4 sector_color : source_color = vec4(1.0, 0.55, 0.1, 0.9);
 uniform vec4 blocked_color : source_color = vec4(1.0, 0.05, 0.05, 0.9);
 uniform vec4 flow_color : source_color = vec4(0.1, 0.75, 1.0, 0.9);
 uniform vec4 target_color : source_color = vec4(1.0, 0.9, 0.1, 1.0);
 
+uniform float sector_size = 16.0;
 uniform float grid_line_width : hint_range(0.0005, 0.2, 0.0005) = 0.012;
+uniform float sector_line_width : hint_range(0.001, 0.5, 0.001) = 0.08;
 uniform float marker_line_width : hint_range(0.001, 0.2, 0.001) = 0.025;
 
 varying vec3 world_position;
@@ -120,6 +124,17 @@ void fragment() {
 			line_alpha(distance_to_grid.y, grid_line_width)
 		);
 		color = blend_layer(color, grid_color, grid_alpha);
+	}
+
+	if (show_sectors) {
+		float safe_sector_size = max(sector_size, 1.0);
+		vec2 sector_cell_uv = mod(scaled_uv, safe_sector_size);
+		vec2 distance_to_sector = min(sector_cell_uv, safe_sector_size - sector_cell_uv);
+		float sector_alpha = max(
+			line_alpha(distance_to_sector.x, sector_line_width),
+			line_alpha(distance_to_sector.y, sector_line_width)
+		);
+		color = blend_layer(color, sector_color, sector_alpha);
 	}
 
 	if (show_blocked && data.r > 0.5) {
