@@ -308,6 +308,63 @@ public partial class NavGrid : Node
         }
     }
 
+    private List<NavPortal> FindSectorPortalPath(Vector2I startCellPos, Vector2I targetCellPos)
+    {
+        NavSector startSector = GetSectorForCell(startCellPos);
+        NavSector targetSector = GetSectorForCell(targetCellPos);
+
+        if (startSector == null || targetSector == null)
+            return new List<NavPortal>();
+
+        if (startSector.Position == targetSector.Position)
+            return new List<NavPortal>();
+
+        var frontier = new Queue<NavSector>();
+        var visited = new HashSet<Vector2I>();
+        var cameFromPortal = new Dictionary<Vector2I, NavPortal>();
+
+        frontier.Enqueue(startSector);
+        visited.Add(startSector.Position);
+
+        while (frontier.Count > 0)
+        {
+            NavSector currentSector = frontier.Dequeue();
+
+            if (currentSector.Position == targetSector.Position)
+                break;
+
+            foreach (NavPortal portal in currentSector.Portals)
+            {
+                if (visited.Contains(portal.ToSector))
+                    continue;
+
+                NavSector nextSector = GetSector(portal.ToSector);
+                if (nextSector == null)
+                    continue;
+
+                visited.Add(portal.ToSector);
+                cameFromPortal[portal.ToSector] = portal;
+                frontier.Enqueue(nextSector);
+            }
+        }
+
+        if (!visited.Contains(targetSector.Position))
+            return new List<NavPortal>();
+
+        var path = new List<NavPortal>();
+        Vector2I currnet = targetSector.Position;
+
+        while (currnet != startSector.Position)
+        {
+            NavPortal portal = cameFromPortal[currnet];
+            path.Add(portal);
+            currnet = portal.FromSector;
+        }
+
+        path.Reverse();
+        return path;
+    }
+
     private void BuildFlowField()
     {
         foreach (NavCell cell in _cells)
