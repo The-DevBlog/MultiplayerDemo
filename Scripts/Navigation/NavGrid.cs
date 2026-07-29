@@ -18,6 +18,7 @@ public partial class NavGrid : Node
 	private int _sectorHeight;
 	private Vector2I _gridOrigin;
 	private NavCell[,] _cells;
+	private NavSector[,] _sectors;
 	private int CellSize = 2;
 	private int _diagonalCost = 14;
 	private int _straightCost = 10;
@@ -55,7 +56,12 @@ public partial class NavGrid : Node
 		}
 
 		InitGrid();
+		InitSectors();
 		LoadObstacles();
+
+		NavSector sector = GetSectorForCell(new Vector2I(149, 149));
+		GD.Print($"{sector.Position}: {sector.MinCell} -> {sector.MaxCell}");
+
 		_debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor);
 
 		if (_drawNavGrid)
@@ -71,9 +77,9 @@ public partial class NavGrid : Node
 			_debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor);
 	}
 
-	public void BuildField(Vector2I targetPosition)
+	public void BuildField(Vector2I targetPos)
 	{
-		bool isIntegrationFieldBuilt = BuildIntegrationField(targetPosition);
+		bool isIntegrationFieldBuilt = BuildIntegrationField(targetPos);
 		if (isIntegrationFieldBuilt)
 		{
 			BuildFlowField();
@@ -82,57 +88,57 @@ public partial class NavGrid : Node
 			if (_drawNavGrid)
 			{
 				_debugRenderer.DrawFlowArrows(this, _gridOrigin, CellSize, _cells);
-				_debugRenderer.DrawTarget(this, _gridOrigin, CellSize, targetPosition);
+				_debugRenderer.DrawTarget(this, _gridOrigin, CellSize, targetPos);
 			}
 		}
 	}
 
-	public Vector2I GetDirection(Vector2I cellPosition)
+	public Vector2I GetDirection(Vector2I cellPos)
 	{
-		NavCell cell = GetCell(cellPosition);
+		NavCell cell = GetCell(cellPos);
 		if (cell == null)
 			return Vector2I.Zero;
 
 		return cell.Direction;
 	}
 
-	public void SetWalkable(Vector2I cellPosition, bool walkable)
+	public void SetWalkable(Vector2I cellPos, bool walkable)
 	{
-		NavCell cell = GetCell(cellPosition);
+		NavCell cell = GetCell(cellPos);
 		if (cell == null)
 			return;
 
 		cell.Walkable = walkable;
 	}
 
-	public Vector2I WorldToCell(Vector3 worldPosition)
+	public Vector2I WorldToCell(Vector3 worldPos)
 	{
-		int x = Mathf.FloorToInt((worldPosition.X - _gridOrigin.X) / CellSize);
-		int z = Mathf.FloorToInt((worldPosition.Z - _gridOrigin.Y) / CellSize);
+		int x = Mathf.FloorToInt((worldPos.X - _gridOrigin.X) / CellSize);
+		int z = Mathf.FloorToInt((worldPos.Z - _gridOrigin.Y) / CellSize);
 
 		return new Vector2I(x, z);
 	}
 
-	public Vector3 CellToWorld(Vector2I cellPosition)
+	public Vector3 CellToWorld(Vector2I cellPos)
 	{
-		float x = _gridOrigin.X + cellPosition.X * CellSize + CellSize / 2.0f;
-		float z = _gridOrigin.Y + cellPosition.Y * CellSize + CellSize / 2.0f;
+		float x = _gridOrigin.X + cellPos.X * CellSize + CellSize / 2.0f;
+		float z = _gridOrigin.Y + cellPos.Y * CellSize + CellSize / 2.0f;
 		float y = GetTerrainHeight(new Vector2(x, z));
 
 		return new Vector3(x, y, z);
 	}
 
-	private Vector2I CellToSectorPosition(Vector2I cellPosition)
+	private Vector2I CellToSectorPosition(Vector2I cellPos)
 	{
-		int sectorX = cellPosition.X / _sectorSize;
-		int sectorY = cellPosition.Y / _sectorSize;
+		int sectorX = cellPos.X / _sectorSize;
+		int sectorY = cellPos.Y / _sectorSize;
 
 		return new Vector2I(sectorX, sectorY);
 	}
 
-	public float GetTerrainHeight(Vector2 worldPosition)
+	public float GetTerrainHeight(Vector2 worldPos)
 	{
-		if (TryGetTerrainPoint(worldPosition, out Vector3 terrainPoint))
+		if (TryGetTerrainPoint(worldPos, out Vector3 terrainPoint))
 			return terrainPoint.Y;
 
 		return GetFallbackGroundHeight();
@@ -149,13 +155,30 @@ public partial class NavGrid : Node
 		return TryRaycastTerrain(rayOrigin, rayEnd, out terrainPoint);
 	}
 
-	public NavCell GetCell(Vector2I cellPosition)
+	private NavCell GetCell(Vector2I cellPos)
 	{
-		bool isInBounds = IsInBounds(cellPosition);
+		bool isInBounds = IsInBounds(cellPos);
 		if (!isInBounds)
 			return null;
 
-		return _cells[cellPosition.X, cellPosition.Y];
+		return _cells[cellPos.X, cellPos.Y];
+	}
+
+	private NavSector GetSector(Vector2I sectorPos)
+	{
+		if (sectorPos.X < 0 || sectorPos.Y < 0)
+			return null;
+
+		if (sectorPos.X >= _sectorWidth || sectorPos.Y >= _sectorHeight)
+			return null;
+
+		return _sectors[sectorPos.X, sectorPos.Y];
+	}
+
+	private NavSector GetSectorForCell(Vector2I cellPos)
+	{
+		Vector2I sectorPos = CellToSectorPosition(cellPos);
+		return GetSector(sectorPos);
 	}
 
 	private void InitGrid()
@@ -166,9 +189,23 @@ public partial class NavGrid : Node
 		{
 			for (int y = 0; y < _height; y++)
 			{
-				Vector2I position = new Vector2I(x, y);
-				NavCell cell = new NavCell(position);
+				Vector2I pos = new Vector2I(x, y);
+				NavCell cell = new NavCell(pos);
 				_cells[x, y] = cell;
+			}
+		}
+	}
+
+	private void InitSectors()
+	{
+		_sectors = new NavSector[_sectorWidth, _sectorHeight];
+
+		for (int x = 0; x < _sectorWidth; x++)
+		{
+			for (int y = 0; y < _sectorHeight; y++)
+			{
+				Vector2I sectorPos = new Vector2I(x, y);
+				_sectors[x, y] = CreateSector(sectorPos);
 			}
 		}
 	}
@@ -206,11 +243,11 @@ public partial class NavGrid : Node
 		}
 	}
 
-	private bool BuildIntegrationField(Vector2I targetPosition)
+	private bool BuildIntegrationField(Vector2I targetPos)
 	{
 		ResetIntegrationCosts();
 
-		NavCell targetCell = GetCell(targetPosition);
+		NavCell targetCell = GetCell(targetPos);
 		if (targetCell == null)
 			return false;
 
@@ -298,9 +335,9 @@ public partial class NavGrid : Node
 		{
 			for (int y = minCell.Y; y <= maxCell.Y; y++)
 			{
-				Vector2I cellPosition = new Vector2I(x, y);
-				if (CellOverlapsFootprint(cellPosition, footprint))
-					SetWalkable(cellPosition, false);
+				Vector2I cellPos = new Vector2I(x, y);
+				if (CellOverlapsFootprint(cellPos, footprint))
+					SetWalkable(cellPos, false);
 			}
 		}
 	}
@@ -344,11 +381,11 @@ public partial class NavGrid : Node
 		points.Add(point);
 	}
 
-	private bool CellOverlapsFootprint(Vector2I cellPosition, Vector2[] footprint)
+	private bool CellOverlapsFootprint(Vector2I cellPos, Vector2[] footprint)
 	{
-		float left = _gridOrigin.X + cellPosition.X * CellSize;
+		float left = _gridOrigin.X + cellPos.X * CellSize;
 		float right = left + CellSize;
-		float top = _gridOrigin.Y + cellPosition.Y * CellSize;
+		float top = _gridOrigin.Y + cellPos.Y * CellSize;
 		float bottom = top + CellSize;
 
 		Vector2[] cellCorners =
@@ -411,9 +448,9 @@ public partial class NavGrid : Node
 			GetMeshes(child, meshes);
 	}
 
-	private NavCell[] GetNeighbors(Vector2I cellPosition)
+	private NavCell[] GetNeighbors(Vector2I cellPos)
 	{
-		bool isInBounds = IsInBounds(cellPosition);
+		bool isInBounds = IsInBounds(cellPos);
 		if (!isInBounds)
 			return Array.Empty<NavCell>();
 
@@ -421,7 +458,7 @@ public partial class NavGrid : Node
 
 		foreach (Vector2I offset in _offsets)
 		{
-			NavCell cell = GetCell(cellPosition + offset);
+			NavCell cell = GetCell(cellPos + offset);
 			if (cell != null && cell.Walkable)
 			{
 				neighbors.Add(cell);
@@ -439,11 +476,11 @@ public partial class NavGrid : Node
 		return isDiagonal ? _diagonalCost : _straightCost;
 	}
 
-	private bool TryGetTerrainPoint(Vector2 worldPosition, out Vector3 terrainPoint)
+	private bool TryGetTerrainPoint(Vector2 worldPos, out Vector3 terrainPoint)
 	{
 		float fallbackHeight = GetFallbackGroundHeight();
-		Vector3 from = new Vector3(worldPosition.X, fallbackHeight + _terrainRaycastHeight, worldPosition.Y);
-		Vector3 to = new Vector3(worldPosition.X, fallbackHeight - _terrainRaycastHeight, worldPosition.Y);
+		Vector3 from = new Vector3(worldPos.X, fallbackHeight + _terrainRaycastHeight, worldPos.Y);
+		Vector3 to = new Vector3(worldPos.X, fallbackHeight - _terrainRaycastHeight, worldPos.Y);
 
 		return TryRaycastTerrain(from, to, out terrainPoint);
 	}
@@ -483,10 +520,27 @@ public partial class NavGrid : Node
 		}
 	}
 
-	private bool IsInBounds(Vector2I cellPosition)
+	private NavSector CreateSector(Vector2I sectorPos)
 	{
-		int x = cellPosition.X;
-		int y = cellPosition.Y;
+		int minCellX = sectorPos.X * _sectorSize;
+		int minCellY = sectorPos.Y * _sectorSize;
+
+		int maxCellX = minCellX + _sectorSize - 1;
+		int maxCellY = minCellY + _sectorSize - 1;
+		maxCellX = Math.Min(maxCellX, _width - 1);
+		maxCellY = Math.Min(maxCellY, _height - 1);
+
+		return new NavSector(
+			sectorPos,
+			new Vector2I(minCellX, minCellY),
+			new Vector2I(maxCellX, maxCellY)
+		);
+	}
+
+	private bool IsInBounds(Vector2I cellPos)
+	{
+		int x = cellPos.X;
+		int y = cellPos.Y;
 
 		if (x >= _width || y >= _height || x < 0 || y < 0)
 			return false;
