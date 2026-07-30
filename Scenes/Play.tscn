@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://b7co7h7uxcl52" path="res://Scripts/LockstepManager.cs" id="3_vlv1q"]
 [ext_resource type="PackedScene" uid="uid://bpe1g352atpsm" path="res://CommandUI.tscn" id="4_nsvgp"]
 [ext_resource type="Script" uid="uid://b415q4vmxsrrq" path="res://Scripts/Navigation/NavGrid.cs" id="5_vx41i"]
+[ext_resource type="Script" path="res://Scripts/FpsCounter.cs" id="6_fps_counter"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7522t"]
 albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
@@ -20,7 +21,7 @@ size = Vector3(1, 1, 18.96)
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
 MapSize = Vector2i(300, 300)
-UnitCount = 100
+UnitCount = 1000
 UnitScene = ExtResource("1_vlv1q")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
@@ -29,7 +30,7 @@ transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.0
 mesh = SubResource("QuadMesh_tkwp6")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1119935622]
-transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 40.86361, 31.378685)
+transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 76.44799, 57.546463)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1027563375]
 transform = Transform3D(0.61221963, 0.7475729, 0.2575304, 0, -0.32570428, 0.9454717, 0.79068774, -0.5788363, -0.19940256, 0, 0, 0)
@@ -43,6 +44,18 @@ script = ExtResource("3_vlv1q")
 
 [node name="CommandUI" parent="." unique_id=1970721745 instance=ExtResource("4_nsvgp")]
 
+[node name="FpsCanvas" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="FpsCounter" type="Label" parent="FpsCanvas"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 130.0
+offset_bottom = 38.0
+theme_override_font_sizes/font_size = 18
+text = "FPS: 0"
+script = ExtResource("6_fps_counter")
+
 [node name="NavGrid" type="Node" parent="." unique_id=1923506836]
 unique_name_in_owner = true
 script = ExtResource("5_vx41i")
@@ -52,5 +65,5 @@ FlowColor = Color(1, 1, 1, 1)
 TargetColor = Color(0.9088366, 0.9396983, 0, 1)
 
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
-transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -16.91008, 1.1073065, 1.3457222)
+transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -16.91008, 1.1073065, -149.87645)
 mesh = SubResource("BoxMesh_ptkwr")
