@@ -62,14 +62,6 @@ public partial class NavGrid : Node
         LoadObstacles();
         BuildSectorPortals();
 
-        List<NavPortal> testPath = FindSectorPortalPath(new Vector2I(0, 0), new Vector2I(299, 299));
-        GD.Print($"[SectorPathTest] path length: {testPath.Count}");
-
-        foreach (NavPortal portal in testPath)
-        {
-            GD.Print($"[SectorPathTest] {portal.FromSector} -> {portal.ToSector}: {portal.FromCell} -> {portal.ToCell}");
-        }
-
         _debugRenderer.SetSectorSize(_sectorSize);
         _debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
 

@@ -15,10 +15,7 @@ material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ptkwr"]
-size = Vector3(1, 1, 9.76)
-
-[sub_resource type="BoxMesh" id="BoxMesh_ek1d2"]
-size = Vector3(3.575, 1, 9.21)
+size = Vector3(1, 1, 18.96)
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
@@ -54,18 +51,6 @@ FlowColor = Color(1, 1, 1, 1)
 PortalColor = Color(0.44097126, 0.7529065, 1, 1)
 TargetColor = Color(0.9088366, 0.9396983, 0, 1)
 
-[node name="Obstacle" type="MeshInstance3D" parent="." unique_id=1489313604 groups=["nav_obstacles"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33.965523, 1.1073084, -17.762234)
-mesh = SubResource("BoxMesh_ptkwr")
-
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
-transform = Transform3D(0.41664684, 0, 0.9090684, 0, 1, 0, -0.9090684, 0, 0.41664684, -24.357304, 1.1073084, 17.337307)
+transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -16.91008, 1.1073065, 1.3457222)
 mesh = SubResource("BoxMesh_ptkwr")
-
-[node name="Obstacle3" type="MeshInstance3D" parent="." unique_id=1796423472 groups=["nav_obstacles"]]
-transform = Transform3D(0.77472377, 0, 0.63229984, 0, 1, 0, -0.63229984, 0, 0.77472377, 28.200869, 1.1073065, -31.117548)
-mesh = SubResource("BoxMesh_ptkwr")
-
-[node name="Obstacle4" type="MeshInstance3D" parent="." unique_id=970118096 groups=["nav_obstacles"]]
-transform = Transform3D(0.67913526, 0, -0.73401314, 0, 1, 0, 0.73401314, 0, 0.67913526, 16.94713, 1.1073065, 12.419134)
-mesh = SubResource("BoxMesh_ek1d2")
