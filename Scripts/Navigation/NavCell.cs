@@ -7,8 +7,7 @@ public class NavCell
     public int Cost { get; set; }
     public int IntegrationCost { get; set; }
     public Vector2I Direction { get; set; }
-
-    private const int MaxIntegrationCost = 999999;
+    public const int MaxIntegrationCost = 999999;
 
     public NavCell(Vector2I position)
     {
