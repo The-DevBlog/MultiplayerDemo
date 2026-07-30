@@ -21,6 +21,7 @@ public partial class NavGrid : Node
 	private Vector2I _gridOrigin;
 	private NavCell[,] _cells;
 	private NavSector[,] _sectors;
+	private float[,] _heightMap;
 	private Dictionary<int, NavFlowField> _flowFields = new();
 	private int _nextFlowFieldID = 1;
 	private int CellSize = 1;
@@ -63,6 +64,7 @@ public partial class NavGrid : Node
 		InitSectors();
 		LoadObstacles();
 		BuildSectorPortals();
+		BuildHeightMap();
 
 		_debugRenderer.SetSectorSize(_sectorSize);
 		_debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
@@ -185,10 +187,15 @@ public partial class NavGrid : Node
 
 	public float GetTerrainHeight(Vector2 worldPos)
 	{
-		if (TryGetTerrainPoint(worldPos, out Vector3 terrainPoint))
-			return terrainPoint.Y;
+		if (_heightMap == null)
+			return GetFallbackGroundHeight();
 
-		return GetFallbackGroundHeight();
+		Vector2I cell = WorldToCell(new Vector3(worldPos.X, 0.0f, worldPos.Y));
+
+		if (cell.X < 0 || cell.Y < 0 || cell.X >= _width || cell.Y >= _height)
+			return GetFallbackGroundHeight();
+
+		return _heightMap[cell.X, cell.Y];
 	}
 
 	public bool TryProjectToTerrain(Vector3 rayOrigin, Vector3 rayDirection, out Vector3 terrainPoint)
@@ -358,6 +365,30 @@ public partial class NavGrid : Node
 		}
 	}
 
+	private void BuildHeightMap()
+	{
+		_heightMap = new float[_width, _height];
+
+		for (int x = 0; x < _width; x++)
+		{
+			for (int y = 0; y < _height; y++)
+			{
+				float worldX = _gridOrigin.X + x * CellSize + CellSize / 2.0f;
+				float worldZ = _gridOrigin.Y + y * CellSize + CellSize / 2.0f;
+
+				_heightMap[x, y] = GetTerrainHeightByRayCast(new Vector2(worldX, worldZ));
+			}
+		}
+	}
+
+	private float GetTerrainHeightByRayCast(Vector2 worldPos)
+	{
+		if (TryGetTerrainPoint(worldPos, out Vector3 terrainPoint))
+			return terrainPoint.Y;
+
+		return GetFallbackGroundHeight();
+	}
+
 	private int GetPortalMoveCost(NavPortal portal)
 	{
 		Vector2I delta = portal.ToSector - portal.FromSector;
@@ -379,10 +410,10 @@ public partial class NavGrid : Node
 		return true;
 	}
 
-
 	private HashSet<Vector2I> BuildAllowedSectorSet(List<Vector2I> startCellPositions, Vector2I targetCellPos)
 	{
 		var allowedSectors = new HashSet<Vector2I>();
+		var representativeStartCellBySector = new Dictionary<Vector2I, Vector2I>();
 
 		NavSector targetSector = GetSectorForCell(targetCellPos);
 		if (targetSector != null)
@@ -390,11 +421,19 @@ public partial class NavGrid : Node
 
 		foreach (Vector2I startCellPos in startCellPositions)
 		{
-			List<NavPortal> sectorPath = FindSectorPortalPath(startCellPos, targetCellPos);
-
 			NavSector startSector = GetSectorForCell(startCellPos);
-			if (startSector != null)
-				allowedSectors.Add(startSector.Position);
+			if (startSector == null)
+				continue;
+
+			allowedSectors.Add(startSector.Position);
+
+			if (!representativeStartCellBySector.ContainsKey(startSector.Position))
+				representativeStartCellBySector[startSector.Position] = startCellPos;
+		}
+
+		foreach (Vector2I representativeStartCell in representativeStartCellBySector.Values)
+		{
+			List<NavPortal> sectorPath = FindSectorPortalPath(representativeStartCell, targetCellPos);
 
 			foreach (NavPortal portal in sectorPath)
 			{
