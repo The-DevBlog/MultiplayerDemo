@@ -327,13 +327,13 @@ public partial class NavGrid : Node
         }
     }
 
-    // private int GetPortalMoveCost(NavPortal portal)
-    // {
-    //     Vector2I delta = portal.ToSector - portal.FromSector;
+    private int GetPortalMoveCost(NavPortal portal)
+    {
+        Vector2I delta = portal.ToSector - portal.FromSector;
 
-    //     bool isDiagonal = delta.X != 0 && delta.Y != 0;
-    //     return isDiagonal ? _diagonalCost : _straightCost;
-    // }
+        bool isDiagonal = delta.X != 0 && delta.Y != 0;
+        return isDiagonal ? _diagonalCost : _straightCost;
+    }
 
     private bool AreCellsWalkable(params Vector2I[] cellPositions)
     {
@@ -386,12 +386,12 @@ public partial class NavGrid : Node
         if (startSector.Position == targetSector.Position)
             return new List<NavPortal>();
 
-        var frontier = new Queue<NavSector>();
-        var visited = new HashSet<Vector2I>();
+        var frontier = new PriorityQueue<NavSector, int>();
+        var costSoFar = new Dictionary<Vector2I, int>();
         var cameFromPortal = new Dictionary<Vector2I, NavPortal>();
 
-        frontier.Enqueue(startSector);
-        visited.Add(startSector.Position);
+        frontier.Enqueue(startSector, 0);
+        costSoFar[startSector.Position] = 0;
 
         while (frontier.Count > 0)
         {
@@ -400,22 +400,26 @@ public partial class NavGrid : Node
             if (currentSector.Position == targetSector.Position)
                 break;
 
+            int currentCost = costSoFar[currentSector.Position];
+
             foreach (NavPortal portal in currentSector.Portals)
             {
-                if (visited.Contains(portal.ToSector))
-                    continue;
-
                 NavSector nextSector = GetSector(portal.ToSector);
                 if (nextSector == null)
                     continue;
 
-                visited.Add(portal.ToSector);
-                cameFromPortal[portal.ToSector] = portal;
-                frontier.Enqueue(nextSector);
+                int newCost = currentCost + GetPortalMoveCost(portal);
+
+                if (costSoFar.TryGetValue(nextSector.Position, out int existingCost) && existingCost <= newCost)
+                    continue;
+
+                costSoFar[nextSector.Position] = newCost;
+                cameFromPortal[nextSector.Position] = portal;
+                frontier.Enqueue(nextSector, newCost);
             }
         }
 
-        if (!visited.Contains(targetSector.Position))
+        if (!costSoFar.ContainsKey(targetSector.Position))
             return new List<NavPortal>();
 
         var path = new List<NavPortal>();
