@@ -23,7 +23,6 @@ size = Vector3(3.575, 1, 9.21)
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
 MapSize = Vector2i(300, 300)
-UnitCount = 200
 UnitScene = ExtResource("1_vlv1q")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
