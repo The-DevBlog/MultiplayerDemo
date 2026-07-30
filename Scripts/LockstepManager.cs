@@ -180,11 +180,10 @@ public partial class LockstepManager : Node
 				foreach (Unit unit in units)
 					startCells.Add(navGrid.WorldToCell(unit.GlobalPosition));
 
-				navGrid.BuildField(startCells, cmd.Position);
+				int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
 
 				foreach (Unit unit in units)
-					unit.FollowFlowField();
-
+					unit.FollowFlowField(flowFieldID);
 			}
 
 			_moveCommands.Remove(_currentTick);

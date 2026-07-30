@@ -20,6 +20,7 @@ size = Vector3(1, 1, 18.96)
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
 MapSize = Vector2i(300, 300)
+UnitCount = 100
 UnitScene = ExtResource("1_vlv1q")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
@@ -48,7 +49,6 @@ script = ExtResource("5_vx41i")
 _drawNavGrid = true
 GridColor = Color(1, 1, 1, 1)
 FlowColor = Color(1, 1, 1, 1)
-PortalColor = Color(0.44097126, 0.7529065, 1, 1)
 TargetColor = Color(0.9088366, 0.9396983, 0, 1)
 
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]

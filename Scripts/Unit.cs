@@ -7,6 +7,7 @@ public partial class Unit : Node3D
 	[Export] public int UnitID { get; set; }
 	[Export] public int PlayerID { get; set; }
 	[Export] public float Speed { get; set; } = 8.0f;
+	[Export] public int FlowFieldID { get; set; } = -1;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 
 	private NavGrid _navGrid;
@@ -70,8 +71,12 @@ public partial class Unit : Node3D
 	// 	// GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
 	// }
 
-	public void FollowFlowField()
+	public void FollowFlowField(int flowFieldID)
 	{
+		if (flowFieldID < 0)
+			return;
+
+		FlowFieldID = flowFieldID;
 		_isMoving = true;
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
@@ -79,13 +84,13 @@ public partial class Unit : Node3D
 
 	private void Move(double delta)
 	{
-		if (!_isMoving || _navGrid == null)
+		if (!_isMoving || _navGrid == null || FlowFieldID < 0)
 			return;
 
 		if (!_hasWaypoint)
 		{
 			Vector2I currentCellPos = _navGrid.WorldToCell(GlobalPosition);
-			Vector2I direction = _navGrid.GetDirection(currentCellPos);
+			Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
 
 			if (direction == Vector2I.Zero)
 			{
