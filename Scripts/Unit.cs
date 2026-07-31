@@ -89,6 +89,12 @@ public partial class Unit : Node3D
 		_stopAfterWaypoint = false;
 	}
 
+	public Vector3 GetSimWorldPosition()
+	{
+		Vector2 flatWorldPos = SimToFlatWorldPosition(SimPosition);
+		return new Vector3(flatWorldPos.X, 0.0f, flatWorldPos.Y);
+	}
+
 	private void Move(double delta)
 	{
 		if (!_isMoving || _navGrid == null || FlowFieldID < 0)

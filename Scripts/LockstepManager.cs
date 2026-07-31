@@ -178,7 +178,7 @@ public partial class LockstepManager : Node
 				var startCells = new List<Vector2I>();
 
 				foreach (Unit unit in units)
-					startCells.Add(navGrid.WorldToCell(unit.GlobalPosition));
+					startCells.Add(navGrid.WorldToCell(unit.GetSimWorldPosition()));
 
 				int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
 
@@ -205,14 +205,10 @@ public partial class LockstepManager : Node
 
 			foreach (Unit unit in _units.Values)
 			{
-				int x = Mathf.RoundToInt(unit.Position.X);
-				int y = Mathf.RoundToInt(unit.Position.Y);
-				int z = Mathf.RoundToInt(unit.Position.Z);
-
 				hash = hash * 31 + unit.UnitID;
-				hash = hash * 31 + x;
-				hash = hash * 31 + y;
-				hash = hash * 31 + z;
+				hash = hash * 31 + unit.SimPosition.X;
+				hash = hash * 31 + unit.SimPosition.Y;
+				hash = hash * 31 + unit.FlowFieldID;
 			}
 		}
 
