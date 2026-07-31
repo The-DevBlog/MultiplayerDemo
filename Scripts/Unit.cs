@@ -52,9 +52,9 @@ public partial class Unit : Node3D
 		SimPosition = WorldToSimPosition(GlobalPosition);
 	}
 
-	public override void _PhysicsProcess(double delta)
+	public void SimTick()
 	{
-		Move(delta);
+		Move();
 	}
 
 	public void SetSelected(bool selected)
@@ -95,7 +95,7 @@ public partial class Unit : Node3D
 		return new Vector3(flatWorldPos.X, 0.0f, flatWorldPos.Y);
 	}
 
-	private void Move(double delta)
+	private void Move()
 	{
 		if (!_isMoving || _navGrid == null || FlowFieldID < 0)
 			return;

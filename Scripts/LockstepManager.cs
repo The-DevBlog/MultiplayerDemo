@@ -156,8 +156,6 @@ public partial class LockstepManager : Node
 
 	private void RunTick()
 	{
-		DesyncCheck();
-
 		if (_moveCommands.ContainsKey(_currentTick))
 		{
 			List<MoveCommand> commands = _moveCommands[_currentTick];
@@ -188,6 +186,11 @@ public partial class LockstepManager : Node
 
 			_moveCommands.Remove(_currentTick);
 		}
+
+		foreach (Unit unit in _units.Values)
+			unit.SimTick();
+
+		DesyncCheck();
 
 		_currentTick++;
 	}
