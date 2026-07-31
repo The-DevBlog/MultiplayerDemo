@@ -102,7 +102,7 @@ public partial class Unit : Node3D
 
 		if (!_hasWaypoint)
 		{
-			Vector2I currentCellPos = _navGrid.WorldToCell(GlobalPosition);
+			Vector2I currentCellPos = _navGrid.WorldToCell(GetSimWorldPosition());
 			Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
 
 			if (direction == Vector2I.Zero)
