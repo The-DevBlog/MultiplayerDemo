@@ -24,7 +24,7 @@ public partial class Unit : Node3D
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
 	private bool _isMoving;
-	private Vector3 _currentWaypoint;
+	private Vector2I _currentWaypointSim;
 	private bool _hasWaypoint;
 	private bool _stopAfterWaypoint;
 
@@ -101,44 +101,56 @@ public partial class Unit : Node3D
 
 			if (direction == Vector2I.Zero)
 			{
-				_currentWaypoint = _navGrid.CellToWorld(currentCellPos);
+				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(currentCellPos));
 				_stopAfterWaypoint = true;
 			}
 			else
 			{
 				Vector2I nextCellPos = currentCellPos + direction;
-				_currentWaypoint = _navGrid.CellToWorld(nextCellPos);
+				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(nextCellPos));
 				_stopAfterWaypoint = false;
 			}
 
 			_hasWaypoint = true;
 		}
 
-		Vector2 currentFlatPos = SimToFlatWorldPosition(SimPosition);
-		Vector2 waypointFlatPos = new Vector2(_currentWaypoint.X, _currentWaypoint.Z);
-		Vector2 toWaypoint = waypointFlatPos - currentFlatPos;
+		Vector2I previousSimPos = SimPosition;
+		SimPosition = MoveTowards(SimPosition, _currentWaypointSim, SimSpeedPerTick);
+		ApplySimPositionToWorld();
 
-		float distanceThisFrame = SimSpeedPerTick / (float)SimScale;
-
-		if (toWaypoint.Length() <= distanceThisFrame)
+		if (SimPosition == _currentWaypointSim)
 		{
-			SimPosition = WorldToSimPosition(_currentWaypoint);
-			ApplySimPositionToWorld();
-
 			_hasWaypoint = false;
 
 			if (_stopAfterWaypoint)
 				_isMoving = false;
-
-			return;
 		}
 
-		Vector2 moveDirection = toWaypoint.Normalized();
-		Vector2 moveAmount = moveDirection * distanceThisFrame;
-		Vector2 nextFlatPosition = currentFlatPos + moveAmount;
+		if (SimPosition == previousSimPos)
+		{
+			_hasWaypoint = false;
 
-		SimPosition = WorldToSimPosition(new Vector3(nextFlatPosition.X, 0.0f, nextFlatPosition.Y));
-		ApplySimPositionToWorld();
+			if (_stopAfterWaypoint)
+				_isMoving = false;
+		}
+	}
+
+	private static Vector2I MoveTowards(Vector2I current, Vector2I target, int maxDistance)
+	{
+		Vector2I toTarget = target - current;
+		long distanceSquared = LengthSquared(toTarget);
+
+		if (distanceSquared <= (long)maxDistance * maxDistance)
+			return target;
+
+		int distance = IntegerSqrt(distanceSquared);
+		if (distance == 0)
+			return target;
+
+		return current + new Vector2I(
+			toTarget.X * maxDistance / distance,
+			toTarget.Y * maxDistance / distance
+		);
 	}
 
 	private static Vector2I WorldToSimPosition(Vector3 worldPos)
@@ -167,5 +179,38 @@ public partial class Unit : Node3D
 			y,
 			flatWorldPos.Y
 		);
+	}
+
+	private static long LengthSquared(Vector2I value)
+	{
+		return (long)value.X * value.X + (long)value.Y * value.Y;
+	}
+
+	private static int IntegerSqrt(long value)
+	{
+		if (value <= 0)
+			return 0;
+
+		long left = 1;
+		long right = value;
+		long result = 0;
+
+		while (left <= right)
+		{
+			long middle = (left + right) / 2;
+			long square = middle * middle;
+
+			if (square <= value)
+			{
+				result = middle;
+				left = middle + 1;
+			}
+			else
+			{
+				right = middle - 1;
+			}
+		}
+
+		return (int)result;
 	}
 }

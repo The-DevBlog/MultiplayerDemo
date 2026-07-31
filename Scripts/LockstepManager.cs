@@ -255,7 +255,6 @@ public partial class LockstepManager : Node
 
 			if (isDesync)
 				GD.Print("DESYNC DETECTED");
-			// GD.Print($"Desync Detected: {_isDesync}");
 		}
 	}
 }
