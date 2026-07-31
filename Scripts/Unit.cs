@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public partial class Unit : Node3D
 {
@@ -9,6 +10,14 @@ public partial class Unit : Node3D
 	[Export] public float Speed { get; set; } = 8.0f;
 	[Export] public int FlowFieldID { get; set; } = -1;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
+
+	// [ExportGroup("Avoidance")]
+	// [Export] private const float A
+
+	// Lockstep Simulation
+	private const int SimScale = 1000; // converts floats to ints
+	public int SimSpeedPerTick { get; set; } = 133;
+	public Vector2I SimPosition { get; private set; }
 
 	private NavGrid _navGrid;
 	private MeshInstance3D _mesh;
@@ -40,9 +49,7 @@ public partial class Unit : Node3D
 			Emission = new Color(1.0f, 0.65f, 0.05f),
 		};
 
-		int x = Mathf.RoundToInt(GlobalPosition.X);
-		int y = Mathf.RoundToInt(GlobalPosition.Y);
-		int z = Mathf.RoundToInt(GlobalPosition.Z);
+		SimPosition = WorldToSimPosition(GlobalPosition);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -107,15 +114,16 @@ public partial class Unit : Node3D
 			_hasWaypoint = true;
 		}
 
-		Vector2 currentFlatPos = new Vector2(GlobalPosition.X, GlobalPosition.Z);
+		Vector2 currentFlatPos = SimToFlatWorldPosition(SimPosition);
 		Vector2 waypointFlatPos = new Vector2(_currentWaypoint.X, _currentWaypoint.Z);
 		Vector2 toWaypoint = waypointFlatPos - currentFlatPos;
 
-		float distanceThisFrame = Speed * (float)delta;
+		float distanceThisFrame = SimSpeedPerTick / (float)SimScale;
 
 		if (toWaypoint.Length() <= distanceThisFrame)
 		{
-			GlobalPosition = _currentWaypoint;
+			SimPosition = WorldToSimPosition(_currentWaypoint);
+			ApplySimPositionToWorld();
 
 			_hasWaypoint = false;
 
@@ -128,12 +136,36 @@ public partial class Unit : Node3D
 		Vector2 moveDirection = toWaypoint.Normalized();
 		Vector2 moveAmount = moveDirection * distanceThisFrame;
 		Vector2 nextFlatPosition = currentFlatPos + moveAmount;
-		float nextY = _navGrid.GetTerrainHeight(nextFlatPosition);
+
+		SimPosition = WorldToSimPosition(new Vector3(nextFlatPosition.X, 0.0f, nextFlatPosition.Y));
+		ApplySimPositionToWorld();
+	}
+
+	private static Vector2I WorldToSimPosition(Vector3 worldPos)
+	{
+		return new Vector2I(
+			Mathf.RoundToInt(worldPos.X * SimScale),
+			Mathf.RoundToInt(worldPos.Z * SimScale)
+		);
+	}
+
+	private static Vector2 SimToFlatWorldPosition(Vector2I simPos)
+	{
+		return new Vector2(
+			simPos.X / (float)SimScale,
+			simPos.Y / (float)SimScale
+		);
+	}
+
+	private void ApplySimPositionToWorld()
+	{
+		Vector2 flatWorldPos = SimToFlatWorldPosition(SimPosition);
+		float y = _navGrid.GetTerrainHeight(flatWorldPos);
 
 		GlobalPosition = new Vector3(
-			nextFlatPosition.X,
-			nextY,
-			nextFlatPosition.Y
+			flatWorldPos.X,
+			y,
+			flatWorldPos.Y
 		);
 	}
 }
