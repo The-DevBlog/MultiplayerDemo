@@ -7,16 +7,25 @@ public partial class Unit : Node3D
 
 	[Export] public int UnitID { get; set; }
 	[Export] public int PlayerID { get; set; }
-	[Export] public float Speed { get; set; } = 8.0f;
-	[Export] public int FlowFieldID { get; set; } = -1;
+	[Export] public int Speed { get; set; } = 10;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
+	public int FlowFieldID { get; set; } = -1;
 
 	// [ExportGroup("Avoidance")]
-	// [Export] private const float A
+	// [Export]
+	// private
 
 	// Lockstep Simulation
 	private const int SimScale = 1000; // converts floats to ints
-	public int SimSpeedPerTick { get; set; } = 133;
+	private const int MinSpeedPerTick = 50;
+	private const int MaxSpeedPerTick = 800;
+	private int _speedPerTick
+	{
+		get
+		{
+			return MinSpeedPerTick + (Speed - 1) * (MaxSpeedPerTick - MinSpeedPerTick) / 19;
+		}
+	}
 	public Vector2I SimPosition { get; private set; }
 
 	private NavGrid _navGrid;
@@ -67,17 +76,6 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	// public void MoveToCell(Vector2I targetCellPos)
-	// {
-	// 	Vector2I startCellPos = _navGrid.WorldToCell(GlobalPosition);
-	// 	_navGrid.BuildField(startCellPos, targetCellPos);
-	// 	_isMoving = true;
-	// 	_hasWaypoint = false;
-	// 	_stopAfterWaypoint = false;
-
-	// 	// GD.Print($"Moving unit to position: ({targetCellPos.X}, {targetCellPos.Y})");
-	// }
-
 	public void FollowFlowField(int flowFieldID)
 	{
 		if (flowFieldID < 0)
@@ -121,7 +119,7 @@ public partial class Unit : Node3D
 		}
 
 		Vector2I previousSimPos = SimPosition;
-		SimPosition = MoveTowards(SimPosition, _currentWaypointSim, SimSpeedPerTick);
+		SimPosition = MoveTowards(SimPosition, _currentWaypointSim, _speedPerTick);
 		ApplySimPositionToWorld();
 
 		if (SimPosition == _currentWaypointSim)
