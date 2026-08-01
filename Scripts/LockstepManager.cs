@@ -155,45 +155,13 @@ public partial class LockstepManager : Node
 
 	private void RunTick()
 	{
+		// MOVE COMMANDS
 		if (_moveCommands.ContainsKey(_currentTick))
 		{
-			List<MoveCommand> commands = _moveCommands[_currentTick];
+			NavGrid navGrid = GetTree().CurrentScene.GetNode<NavGrid>("%NavGrid");
 
-			foreach (var cmd in commands)
-			{
-				var units = new List<Unit>();
-				foreach (var id in cmd.UnitIDs)
-				{
-					if (_units.TryGetValue(id, out Unit unit))
-						units.Add(unit);
-				}
-
-				if (units.Count == 0)
-					continue;
-
-				units.Sort((l, r) => l.UnitID.CompareTo(r.UnitID));
-
-				NavGrid navGrid = GetTree().CurrentScene.GetNode<NavGrid>("%NavGrid");
-				var startCells = new List<Vector2I>();
-
-				foreach (Unit unit in units)
-					startCells.Add(navGrid.WorldToCell(unit.GetSimWorldPosition()));
-
-				List<Vector2I> destCells = navGrid.FindDestinationCells(cmd.Position, units.Count);
-
-				if (destCells.Count < units.Count)
-				{
-					GD.PrintErr($"Only found {destCells.Count} destinations for {units.Count} units");
-					continue;
-				}
-
-				List<Vector2I> assignments = NavGrid.AssignDestinationCells(units, destCells, navGrid);
-
-				int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
-
-				for (int i = 0; i < units.Count; i++)
-					units[i].FollowFlowField(flowFieldID, assignments[i], cmd.Position);
-			}
+			List<MoveCommand> moveCmds = _moveCommands[_currentTick];
+			MoveCommand.ProcessCommand(_units, moveCmds, navGrid);
 
 			_moveCommands.Remove(_currentTick);
 		}
