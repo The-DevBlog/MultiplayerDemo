@@ -134,6 +134,70 @@ public partial class NavGrid : Node
 		return flowFieldID;
 	}
 
+	public List<Vector2I> FindDestinationCells(
+		Vector2I centerCell,
+		int destCount,
+		int spacingInCells = 2)
+	{
+		var destinations = new List<Vector2I>(destCount);
+		if (destCount <= 0)
+			return destinations;
+
+		int spacing = Math.Max(1, spacingInCells);
+		long minDistSquared = (long)spacing * spacing;
+
+		void TryAddDestination(Vector2I cellPos)
+		{
+			if (destinations.Count >= destCount)
+				return;
+
+			NavCell cell = GetCell(cellPos);
+			if (cell == null || !cell.Walkable)
+				return;
+
+			foreach (Vector2I dest in destinations)
+			{
+				Vector2I diff = cellPos - dest;
+				long distSquared =
+					(long)diff.X * diff.X +
+					(long)diff.Y * diff.Y;
+
+				if (distSquared < minDistSquared)
+					return;
+			}
+
+			destinations.Add(cellPos);
+		}
+
+		int maxSearchRadius = Math.Max(_width, _height);
+
+		for (int radius = 0; radius <= maxSearchRadius && destinations.Count < destCount; radius++)
+		{
+			if (radius == 0)
+			{
+				TryAddDestination(centerCell);
+				continue;
+			}
+
+			int minOffset = -radius;
+			int maxOffset = radius;
+
+			for (int x = minOffset; x <= maxOffset; x++)
+				TryAddDestination(centerCell + new Vector2I(x, minOffset));
+
+			for (int y = minOffset + 1; y <= maxOffset; y++)
+				TryAddDestination(centerCell + new Vector2I(maxOffset, y));
+
+			for (int x = maxOffset - 1; x >= minOffset; x--)
+				TryAddDestination(centerCell + new Vector2I(x, maxOffset));
+
+			for (int y = maxOffset - 1; y > minOffset; y--)
+				TryAddDestination(centerCell + new Vector2I(minOffset, y));
+		}
+
+		return destinations;
+	}
+
 	public Vector2I GetDirection(Vector2I cellPos)
 	{
 		NavCell cell = GetCell(cellPos);
@@ -207,6 +271,51 @@ public partial class NavGrid : Node
 
 		Vector3 rayEnd = rayOrigin + rayDirection.Normalized() * _terrainRaycastHeight * 2.0f;
 		return TryRaycastTerrain(rayOrigin, rayEnd, out terrainPoint);
+	}
+
+	public static List<Vector2I> AssignDestinationCells(
+	List<Unit> units,
+	List<Vector2I> destCells,
+	NavGrid navGrid)
+	{
+		var availableCells = new List<Vector2I>(destCells);
+		var assignments = new List<Vector2I>(units.Count);
+
+		foreach (Unit unit in units)
+		{
+			Vector2I unitCell = navGrid.WorldToCell(unit.GetSimWorldPosition());
+
+			int bestIdx = -1;
+			long bestDistSqrd = long.MaxValue;
+
+			for (int i = 0; i < availableCells.Count; i++)
+			{
+				Vector2I candidate = availableCells[i];
+				Vector2I diff = candidate - unitCell;
+
+				long distSqrd =
+					(long)diff.X * diff.X +
+					(long)diff.Y * diff.Y;
+
+				bool winsTie =
+					bestIdx < 0 ||
+					candidate.Y < availableCells[bestIdx].Y ||
+					(candidate.Y == availableCells[bestIdx].Y &&
+					 candidate.X < availableCells[bestIdx].X);
+
+				if (distSqrd < bestDistSqrd ||
+					(distSqrd == bestDistSqrd && winsTie))
+				{
+					bestIdx = i;
+					bestDistSqrd = distSqrd;
+				}
+			}
+
+			assignments.Add(availableCells[bestIdx]);
+			availableCells.RemoveAt(bestIdx);
+		}
+
+		return assignments;
 	}
 
 	private NavCell GetCell(Vector2I cellPos)

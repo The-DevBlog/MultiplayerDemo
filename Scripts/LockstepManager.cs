@@ -34,7 +34,6 @@ public partial class LockstepManager : Node
 		// load units dictionary
 		RefreshUnits();
 
-		// RpcId(1, nameof(NotifyReady), _playerManager.Player.PeerID);
 		CallDeferred(nameof(StartReadyHandshake));
 	}
 
@@ -172,16 +171,28 @@ public partial class LockstepManager : Node
 				if (units.Count == 0)
 					continue;
 
+				units.Sort((l, r) => l.UnitID.CompareTo(r.UnitID));
+
 				NavGrid navGrid = GetTree().CurrentScene.GetNode<NavGrid>("%NavGrid");
 				var startCells = new List<Vector2I>();
 
 				foreach (Unit unit in units)
 					startCells.Add(navGrid.WorldToCell(unit.GetSimWorldPosition()));
 
+				List<Vector2I> destCells = navGrid.FindDestinationCells(cmd.Position, units.Count);
+
+				if (destCells.Count < units.Count)
+				{
+					GD.PrintErr($"Only found {destCells.Count} destinations for {units.Count} units");
+					continue;
+				}
+
+				List<Vector2I> assignments = NavGrid.AssignDestinationCells(units, destCells, navGrid);
+
 				int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
 
-				foreach (Unit unit in units)
-					unit.FollowFlowField(flowFieldID);
+				for (int i = 0; i < units.Count; i++)
+					units[i].FollowFlowField(flowFieldID, assignments[i], cmd.Position);
 			}
 
 			_moveCommands.Remove(_currentTick);

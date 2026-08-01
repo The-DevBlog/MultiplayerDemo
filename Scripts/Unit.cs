@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class Unit : Node3D
@@ -10,10 +11,9 @@ public partial class Unit : Node3D
 	[Export] public int Speed { get; set; } = 10;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 	public int FlowFieldID { get; set; } = -1;
+	public Vector2I DestinationCell { get; private set; }
 
 	// [ExportGroup("Avoidance")]
-	// [Export]
-	// private
 
 	// Lockstep Simulation
 	private const int SimScale = 1000; // converts floats to ints
@@ -32,6 +32,9 @@ public partial class Unit : Node3D
 	private MeshInstance3D _mesh;
 	private Material _defaultMaterialOverride;
 	private StandardMaterial3D _selectedMaterial;
+
+	// navigation
+	private Vector2I _flowTargetCell;
 	private bool _isMoving;
 	private Vector2I _currentWaypointSim;
 	private bool _hasWaypoint;
@@ -76,12 +79,14 @@ public partial class Unit : Node3D
 		_mesh.MaterialOverride = selected ? _selectedMaterial : _defaultMaterialOverride;
 	}
 
-	public void FollowFlowField(int flowFieldID)
+	public void FollowFlowField(int flowFieldID, Vector2I destCell, Vector2I flowTargetCell)
 	{
 		if (flowFieldID < 0)
 			return;
 
 		FlowFieldID = flowFieldID;
+		DestinationCell = destCell;
+		_flowTargetCell = flowTargetCell;
 		_isMoving = true;
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
@@ -101,18 +106,28 @@ public partial class Unit : Node3D
 		if (!_hasWaypoint)
 		{
 			Vector2I currentCellPos = _navGrid.WorldToCell(GetSimWorldPosition());
-			Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
 
-			if (direction == Vector2I.Zero)
+			if (ShouldSteerToDestination(currentCellPos))
 			{
-				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(currentCellPos));
+				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(DestinationCell));
 				_stopAfterWaypoint = true;
+
 			}
 			else
 			{
-				Vector2I nextCellPos = currentCellPos + direction;
-				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(nextCellPos));
-				_stopAfterWaypoint = false;
+				Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
+				if (direction == Vector2I.Zero)
+				{
+					_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(currentCellPos));
+					_stopAfterWaypoint = true;
+				}
+				else
+				{
+					Vector2I nextCellPos = currentCellPos + direction;
+
+					_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(nextCellPos));
+					_stopAfterWaypoint = false;
+				}
 			}
 
 			_hasWaypoint = true;
@@ -137,6 +152,22 @@ public partial class Unit : Node3D
 			if (_stopAfterWaypoint)
 				_isMoving = false;
 		}
+	}
+
+	private bool ShouldSteerToDestination(Vector2I currentCell)
+	{
+		int slotRadius = GetCellDistance(_flowTargetCell, DestinationCell);
+		int switchRadius = slotRadius + 1;
+
+		return GetCellDistance(currentCell, _flowTargetCell) <= switchRadius;
+	}
+
+	private static int GetCellDistance(Vector2I first, Vector2I second)
+	{
+		int xDist = Math.Abs(first.X - second.X);
+		int yDist = Math.Abs(first.Y - second.Y);
+
+		return Math.Max(xDist, yDist);
 	}
 
 	private static Vector2I MoveTowards(Vector2I current, Vector2I target, int maxDistance)
