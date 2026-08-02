@@ -166,12 +166,82 @@ public partial class LockstepManager : Node
 			_moveCommands.Remove(_currentTick);
 		}
 
-		foreach (Unit unit in _units.Values)
-			unit.SimTick();
+		RunUnitSimulation();
 
 		DesyncCheck();
 
 		_currentTick++;
+	}
+
+	private void RunUnitSimulation()
+	{
+		var units = new List<Unit>(_units.Values);
+		int bucketSize = 1;
+
+		foreach (Unit unit in units)
+		{
+			unit.PrepareSimTick();
+			bucketSize = System.Math.Max(bucketSize, unit.AvoidanceRadiusSim);
+		}
+
+		var buckets = new System.Collections.Generic.Dictionary<Vector2I, List<Unit>>();
+		foreach (Unit unit in units)
+		{
+			Vector2I bucketPosition = GetBucketPosition(unit.SimPosition, bucketSize);
+			if (!buckets.TryGetValue(bucketPosition, out List<Unit> bucket))
+			{
+				bucket = new List<Unit>();
+				buckets.Add(bucketPosition, bucket);
+			}
+
+			bucket.Add(unit);
+		}
+
+		foreach (Unit unit in units)
+		{
+			var neighbors = new List<Unit>();
+			Vector2I centerBucket = GetBucketPosition(unit.SimPosition, bucketSize);
+
+			for (int yOffset = -1; yOffset <= 1; yOffset++)
+			{
+				for (int xOffset = -1; xOffset <= 1; xOffset++)
+				{
+					Vector2I bucketPosition = centerBucket + new Vector2I(xOffset, yOffset);
+					if (buckets.TryGetValue(bucketPosition, out List<Unit> bucket))
+						neighbors.AddRange(bucket);
+				}
+			}
+
+			neighbors.Sort((left, right) =>
+			{
+				int distanceComparison = unit.GetDistanceSquared(left).CompareTo(unit.GetDistanceSquared(right));
+				return distanceComparison != 0
+					? distanceComparison
+					: left.UnitID.CompareTo(right.UnitID);
+			});
+
+			unit.PrepareAvoidanceVelocity(neighbors);
+		}
+
+		foreach (Unit unit in units)
+			unit.ApplySimTick();
+	}
+
+	private static Vector2I GetBucketPosition(Vector2I position, int bucketSize)
+	{
+		return new Vector2I(
+			FloorDivide(position.X, bucketSize),
+			FloorDivide(position.Y, bucketSize)
+		);
+	}
+
+	private static int FloorDivide(int value, int divisor)
+	{
+		int quotient = value / divisor;
+		if (value % divisor < 0)
+			quotient--;
+
+		return quotient;
 	}
 
 	private void DesyncCheck()

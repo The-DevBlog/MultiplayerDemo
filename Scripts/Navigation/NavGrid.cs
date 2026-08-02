@@ -104,7 +104,8 @@ public partial class NavGrid : Node
 			if (!AreStartCellsReachable(startPositions))
 				continue;
 
-			resolvedAllowedSectors = allowedSectors;
+			resolvedAllowedSectors = ExpandAllowedSectors(allowedSectors, 1);
+			BuildIntegrationField(targetPos, resolvedAllowedSectors);
 			break;
 		}
 

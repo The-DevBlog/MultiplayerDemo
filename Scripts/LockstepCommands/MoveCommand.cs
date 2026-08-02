@@ -52,9 +52,27 @@ public class MoveCommand
 			List<Vector2I> assignments = NavGrid.AssignDestinationCells(tmpUnits, destCells, navGrid);
 
 			int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
+			int moveGroupID = GetMoveGroupID(cmd, tmpUnits);
 
 			for (int i = 0; i < tmpUnits.Count; i++)
-				tmpUnits[i].FollowFlowField(flowFieldID, assignments[i], cmd.Position);
+				tmpUnits[i].FollowFlowField(flowFieldID, assignments[i], cmd.Position, moveGroupID);
+		}
+	}
+
+	private static int GetMoveGroupID(MoveCommand command, List<Unit> units)
+	{
+		unchecked
+		{
+			int hash = 17;
+			hash = hash * 31 + command.PeerID;
+			hash = hash * 31 + command.Tick;
+			hash = hash * 31 + command.Position.X;
+			hash = hash * 31 + command.Position.Y;
+
+			foreach (Unit unit in units)
+				hash = hash * 31 + unit.UnitID;
+
+			return hash & int.MaxValue;
 		}
 	}
 }

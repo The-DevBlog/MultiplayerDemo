@@ -5,8 +5,29 @@ public partial class LocalResources : Node3D
 	[Export] public Vector2I MapSize { get; set; }
 	[Export] public int UnitCount { get; set; } = 1;
 	[Export] public PackedScene UnitScene { get; set; }
+	[ExportGroup("Debug")]
+	[Export]
+	public bool ShowAvoidanceVisualization
+	{
+		get => _showAvoidanceVisualization;
+		set
+		{
+			_showAvoidanceVisualization = value;
+
+			if (!IsInsideTree())
+				return;
+
+			foreach (Node node in GetTree().GetNodesInGroup("units"))
+			{
+				if (node is Unit unit)
+					unit.SetAvoidanceVisualization(value);
+			}
+		}
+	}
+
 	private MeshInstance3D _ground;
 	private float _space = 2.0f;
+	private bool _showAvoidanceVisualization;
 	private const string DefaultUnitScenePath = "res://Scenes/unit.tscn";
 
 	public override void _Ready()
@@ -48,6 +69,7 @@ public partial class LocalResources : Node3D
 
 			unit.UnitID = unitIndex;
 			unit.Position = formationOrigin + new Vector3(column * _space, 0.0f, row * _space);
+			unit.SetAvoidanceVisualization(_showAvoidanceVisualization);
 
 			AddChild(unit);
 		}

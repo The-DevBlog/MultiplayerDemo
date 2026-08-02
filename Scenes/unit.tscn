@@ -1,11 +1,24 @@
 [gd_scene format=3 uid="uid://pgtfmwkvel1a"]
 
 [ext_resource type="Script" uid="uid://do6vw7m1h8ta4" path="res://Scripts/Unit.cs" id="1_yjw0f"]
+[ext_resource type="Shader" uid="uid://0b5c78nfd4kx" path="res://Shaders/AvoidanceShader.gdshader" id="2_avoidance"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_1m0ic"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2peyt"]
 albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_avoidance"]
+resource_local_to_scene = true
+render_priority = 1
+shader = ExtResource("2_avoidance")
+shader_parameter/AgentRadius = 0.65
+shader_parameter/AvoidanceRadius = 5.0
+
+[sub_resource type="QuadMesh" id="QuadMesh_avoidance"]
+resource_local_to_scene = true
+material = SubResource("ShaderMaterial_avoidance")
+size = Vector2(10, 10)
 
 [node name="Unit" type="Node3D" unique_id=1363236879]
 script = ExtResource("1_yjw0f")
@@ -15,3 +28,9 @@ UnitID = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("BoxMesh_1m0ic")
 surface_material_override/0 = SubResource("StandardMaterial3D_2peyt")
+
+[node name="AvoidanceVisualization" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.03, 0)
+visible = false
+cast_shadow = 0
+mesh = SubResource("QuadMesh_avoidance")
