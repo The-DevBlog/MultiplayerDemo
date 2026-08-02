@@ -65,5 +65,5 @@ FlowColor = Color(1, 1, 1, 1)
 TargetColor = Color(0.9088366, 0.9396983, 0, 1)
 
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
-transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -44.91008, 1.1073065, 12.12355)
+transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -175.97218, 1.1073065, -244.90361)
 mesh = SubResource("BoxMesh_ptkwr")

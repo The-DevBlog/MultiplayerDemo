@@ -13,6 +13,7 @@ public partial class NavGrid : Node
 	[Export] public Color TargetColor { get; set; } = new(1.0f, 0.9f, 0.1f, 1.0f);
 	[Export] private uint _terrainCollisionMask = uint.MaxValue;
 	[Export] private float _terrainRaycastHeight = 1000.0f;
+	private int _unitSpacingInCells = 2;
 	private int _width { get; set; }
 	private int _height { get; set; }
 	private int _sectorSize = 10;
@@ -137,14 +138,13 @@ public partial class NavGrid : Node
 
 	public List<Vector2I> FindDestinationCells(
 		Vector2I centerCell,
-		int destCount,
-		int spacingInCells = 2)
+		int destCount)
 	{
 		var destinations = new List<Vector2I>(destCount);
 		if (destCount <= 0)
 			return destinations;
 
-		int spacing = Math.Max(1, spacingInCells);
+		int spacing = Math.Max(1, _unitSpacingInCells);
 		long minDistSquared = (long)spacing * spacing;
 
 		void TryAddDestination(Vector2I cellPos)
