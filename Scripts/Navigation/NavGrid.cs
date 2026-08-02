@@ -16,7 +16,7 @@ public partial class NavGrid : Node
 	private int _unitSpacingInCells = 2;
 	private int _width { get; set; }
 	private int _height { get; set; }
-	private int _sectorSize = 10;
+	private int _sectorSize = 15;
 	private int _sectorWidth;
 	private int _sectorHeight;
 	private Vector2I _gridOrigin;
