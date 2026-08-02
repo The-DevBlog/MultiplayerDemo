@@ -213,7 +213,30 @@ public partial class NavGrid : Node
 		if (!_flowFields.TryGetValue(flowFieldID, out NavFlowField flowField))
 			return Vector2I.Zero;
 
-		return flowField.GetDirection(cellPos);
+		Vector2I direction = flowField.GetDirection(cellPos);
+		if (direction != Vector2I.Zero)
+			return direction;
+
+		NavSector sector = GetSectorForCell(cellPos);
+		if (sector == null || flowField.IsSectorCalculated(sector.Position))
+			return Vector2I.Zero;
+
+		return TryExpandFlowFieldToSector(flowField, sector)
+			? flowField.GetDirection(cellPos)
+			: Vector2I.Zero;
+	}
+
+	public bool TryGetNearestFlowCell(
+		int flowFieldID,
+		Vector2I cellPos,
+		int maxSearchRadius,
+		out Vector2I flowCell)
+	{
+		flowCell = default;
+		if (!_flowFields.TryGetValue(flowFieldID, out NavFlowField flowField))
+			return false;
+
+		return flowField.TryGetNearestDirectedCell(cellPos, maxSearchRadius, out flowCell);
 	}
 
 	public void SetWalkable(Vector2I cellPos, bool walkable)
@@ -630,6 +653,7 @@ public partial class NavGrid : Node
 	private NavFlowField BuildFlowField(HashSet<Vector2I> allowedSectors, Vector2I targetPos)
 	{
 		Vector2I[,] directions = new Vector2I[_width, _height];
+		int[,] integrationCosts = new int[_width, _height];
 
 		foreach (NavCell cell in _cells)
 		{
@@ -657,12 +681,114 @@ public partial class NavGrid : Node
 			}
 
 			directions[cell.Position.X, cell.Position.Y] = direction;
+			integrationCosts[cell.Position.X, cell.Position.Y] = cell.IntegrationCost;
 
 			// Temporary: keep the debug overlay showing the most recently built field.
-			cell.Direction = direction;
+			cell.Direction = directions[cell.Position.X, cell.Position.Y];
 		}
 
-		return new NavFlowField(targetPos, directions);
+		return new NavFlowField(targetPos, directions, integrationCosts, allowedSectors);
+	}
+
+	private bool TryExpandFlowFieldToSector(NavFlowField flowField, NavSector sector)
+	{
+		var frontier = new PriorityQueue<NavCell, int>();
+		bool hasBoundarySeed = false;
+
+		for (int x = sector.MinCell.X; x <= sector.MaxCell.X; x++)
+		{
+			for (int y = sector.MinCell.Y; y <= sector.MaxCell.Y; y++)
+			{
+				NavCell cell = GetCell(new Vector2I(x, y));
+				if (cell == null || !cell.Walkable)
+					continue;
+
+				int bestCost = NavCell.MaxIntegrationCost;
+				foreach (NavCell neighbor in GetNeighbors(cell.Position))
+				{
+					NavSector neighborSector = GetSectorForCell(neighbor.Position);
+					if (neighborSector == null ||
+						neighborSector.Position == sector.Position ||
+						!flowField.IsSectorCalculated(neighborSector.Position))
+					{
+						continue;
+					}
+
+					int neighborCost = flowField.GetIntegrationCost(neighbor.Position);
+					if (neighborCost >= NavCell.MaxIntegrationCost)
+						continue;
+
+					int candidateCost =
+						neighborCost + GetMoveCost(neighbor.Position, cell.Position) * cell.Cost;
+					bestCost = Math.Min(bestCost, candidateCost);
+				}
+
+				if (bestCost >= NavCell.MaxIntegrationCost)
+					continue;
+
+				flowField.SetIntegrationCost(cell.Position, bestCost);
+				frontier.Enqueue(cell, bestCost);
+				hasBoundarySeed = true;
+			}
+		}
+
+		if (!hasBoundarySeed)
+			return false;
+
+		while (frontier.TryDequeue(out NavCell currentCell, out int queuedCost))
+		{
+			int currentCost = flowField.GetIntegrationCost(currentCell.Position);
+			if (queuedCost != currentCost)
+				continue;
+
+			foreach (NavCell neighbor in GetNeighbors(currentCell.Position))
+			{
+				NavSector neighborSector = GetSectorForCell(neighbor.Position);
+				if (neighborSector == null || neighborSector.Position != sector.Position)
+					continue;
+
+				int candidateCost =
+					currentCost + GetMoveCost(currentCell.Position, neighbor.Position) * neighbor.Cost;
+				if (candidateCost >= flowField.GetIntegrationCost(neighbor.Position))
+					continue;
+
+				flowField.SetIntegrationCost(neighbor.Position, candidateCost);
+				frontier.Enqueue(neighbor, candidateCost);
+			}
+		}
+
+		flowField.AddCalculatedSector(sector.Position);
+
+		for (int x = sector.MinCell.X; x <= sector.MaxCell.X; x++)
+		{
+			for (int y = sector.MinCell.Y; y <= sector.MaxCell.Y; y++)
+			{
+				NavCell cell = GetCell(new Vector2I(x, y));
+				if (cell == null || !cell.Walkable)
+					continue;
+
+				int bestCost = flowField.GetIntegrationCost(cell.Position);
+				Vector2I direction = Vector2I.Zero;
+
+				foreach (NavCell neighbor in GetNeighbors(cell.Position))
+				{
+					NavSector neighborSector = GetSectorForCell(neighbor.Position);
+					if (neighborSector == null || !flowField.IsSectorCalculated(neighborSector.Position))
+						continue;
+
+					int neighborCost = flowField.GetIntegrationCost(neighbor.Position);
+					if (neighborCost < bestCost)
+					{
+						bestCost = neighborCost;
+						direction = neighbor.Position - cell.Position;
+					}
+				}
+
+				flowField.SetDirection(cell.Position, direction);
+			}
+		}
+
+		return true;
 	}
 
 	private bool BuildIntegrationField(Vector2I targetPos, HashSet<Vector2I> allowedSectors)

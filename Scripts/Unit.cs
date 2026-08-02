@@ -46,6 +46,7 @@ public partial class Unit : Node3D
 	private const int MinSpeedPerTick = 50;
 	private const int MaxSpeedPerTick = 800;
 	private const int MaxAvoidanceNeighbors = 24;
+	private const int FlowRecoverySearchRadius = 3;
 	private int _speedPerTick
 	{
 		get
@@ -241,6 +242,18 @@ public partial class Unit : Node3D
 		Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
 		if (direction == Vector2I.Zero)
 		{
+			if (_navGrid.TryGetNearestFlowCell(
+				FlowFieldID,
+				currentCellPos,
+				FlowRecoverySearchRadius,
+				out Vector2I recoveryCell))
+			{
+				_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(recoveryCell));
+				_hasWaypoint = true;
+				_stopAfterWaypoint = false;
+				return MoveTowards(Vector2I.Zero, _currentWaypointSim - SimPosition, _speedPerTick);
+			}
+
 			_hasWaypoint = false;
 			_stopAfterWaypoint = false;
 			return Vector2I.Zero;
@@ -307,7 +320,8 @@ public partial class Unit : Node3D
 			SimToFlatWorldPosition(SimPosition),
 			SimToFlatWorldPosition(_simVelocity),
 			AgentRadius,
-			_isMoving ? AvoidancePriority : IdleAvoidancePriority
+			_isMoving ? AvoidancePriority : IdleAvoidancePriority,
+			_isMoving
 		);
 	}
 
