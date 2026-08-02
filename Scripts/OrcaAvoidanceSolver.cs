@@ -33,6 +33,7 @@ public static class OrcaAvoidanceSolver
 	private const float Epsilon = 0.00001f;
 	private const float LowSpeedRatio = 0.25f;
 	private const float PassingBias = 0.5f;
+	private const float SameGroupRadiusScale = 0.8f;
 
 	private readonly struct OrcaLine
 	{
@@ -61,11 +62,12 @@ public static class OrcaAvoidanceSolver
 			Vector2 relativePosition = neighbor.Position - agent.Position;
 			Vector2 relativeVelocity = agent.Velocity - neighbor.Velocity;
 			float distanceSquared = relativePosition.LengthSquared();
-			float combinedRadius = agent.Radius + neighbor.Radius;
-			float combinedRadiusSquared = combinedRadius * combinedRadius;
 			bool isSameMoveGroup =
 				agent.MoveGroupID != -1 &&
 				agent.MoveGroupID == neighbor.MoveGroupID;
+			float radiusScale = isSameMoveGroup ? SameGroupRadiusScale : 1.0f;
+			float combinedRadius = (agent.Radius + neighbor.Radius) * radiusScale;
+			float combinedRadiusSquared = combinedRadius * combinedRadius;
 			float activeTimeHorizon = isSameMoveGroup
 				? Math.Min(timeHorizon, groupTimeHorizon)
 				: timeHorizon;

@@ -33,6 +33,8 @@ public partial class Unit : Node3D
 	}
 	[Export(PropertyHint.Range, "0.01,1.0,0.01")] public float AvoidancePriority { get; set; } = 1.0f;
 	[Export(PropertyHint.Range, "0.01,1.0,0.01")] public float IdleAvoidancePriority { get; set; } = 0.1f;
+	[Export(PropertyHint.Range, "0.1,20.0,0.1")] public float AvoidanceTimeHorizon { get; set; } = 8.0f;
+	[Export(PropertyHint.Range, "0.1,20.0,0.1")] public float GroupAvoidanceTimeHorizon { get; set; } = 2.0f;
 	public int FlowFieldID { get; set; } = -1;
 	public Vector2I DestinationCell { get; private set; }
 	private float _agentRadius = 0.65f;
@@ -43,8 +45,6 @@ public partial class Unit : Node3D
 	private const int MinSpeedPerTick = 50;
 	private const int MaxSpeedPerTick = 800;
 	private const int MaxAvoidanceNeighbors = 24;
-	private const float AvoidanceTimeHorizon = 8.0f;
-	private const float GroupAvoidanceTimeHorizon = 5.0f;
 	private int _speedPerTick
 	{
 		get
