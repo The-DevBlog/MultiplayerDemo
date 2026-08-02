@@ -24,6 +24,7 @@ size = Vector2(5, 5)
 script = ExtResource("1_yjw0f")
 UnitID = 1
 AgentRadius = 1.0
+GroupDirectionInfluence = 1.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1218632799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)

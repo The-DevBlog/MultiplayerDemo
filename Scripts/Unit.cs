@@ -35,6 +35,7 @@ public partial class Unit : Node3D
 	[Export(PropertyHint.Range, "0.01,1.0,0.01")] public float IdleAvoidancePriority { get; set; } = 0.1f;
 	[Export(PropertyHint.Range, "0.1,20.0,0.1")] public float AvoidanceTimeHorizon { get; set; } = 8.0f;
 	[Export(PropertyHint.Range, "0.1,20.0,0.1")] public float GroupAvoidanceTimeHorizon { get; set; } = 2.0f;
+	[Export(PropertyHint.Range, "0.0,1.0,0.05")] public float GroupDirectionInfluence { get; set; } = 0.35f;
 	public int FlowFieldID { get; set; } = -1;
 	public Vector2I DestinationCell { get; private set; }
 	private float _agentRadius = 0.65f;
@@ -138,10 +139,11 @@ public partial class Unit : Node3D
 		if (neighborSnapshots.Count == 0)
 			return;
 
+		Vector2 preferredVelocity = GetGroupAlignedPreferredVelocity(neighbors);
 		Vector2 avoidanceVelocity = OrcaAvoidanceSolver.Solve(
 			GetAvoidanceSnapshot(),
 			neighborSnapshots,
-			SimToFlatWorldPosition(_preferredSimVelocity),
+			preferredVelocity,
 			_speedPerTick / (float)SimScale,
 			AvoidanceTimeHorizon,
 			GroupAvoidanceTimeHorizon
@@ -255,6 +257,46 @@ public partial class Unit : Node3D
 			_moveGroupID != -1 &&
 			_moveGroupID == neighbor._moveGroupID &&
 			(_isSettlingAtDestination || neighbor._isSettlingAtDestination);
+	}
+
+	private Vector2 GetGroupAlignedPreferredVelocity(IReadOnlyList<Unit> neighbors)
+	{
+		Vector2 preferredVelocity = SimToFlatWorldPosition(_preferredSimVelocity);
+		if (_moveGroupID == -1 || _isSettlingAtDestination || preferredVelocity == Vector2.Zero)
+			return preferredVelocity;
+
+		Vector2 groupDirection = preferredVelocity.Normalized();
+		int groupMemberCount = 1;
+		long neighborDistanceSquared = (long)AvoidanceRadiusSim * AvoidanceRadiusSim;
+
+		foreach (Unit neighbor in neighbors)
+		{
+			if (neighbor == this ||
+				neighbor._moveGroupID != _moveGroupID ||
+				neighbor._isSettlingAtDestination ||
+				neighbor._preferredSimVelocity == Vector2I.Zero ||
+				GetDistanceSquared(neighbor) > neighborDistanceSquared)
+			{
+				continue;
+			}
+
+			groupDirection += SimToFlatWorldPosition(neighbor._preferredSimVelocity).Normalized();
+			groupMemberCount++;
+		}
+
+		if (groupMemberCount == 1)
+			return preferredVelocity;
+
+		groupDirection /= groupMemberCount;
+		if (groupDirection == Vector2.Zero)
+			return preferredVelocity;
+
+		Vector2 alignedDirection = preferredVelocity.Normalized().Lerp(
+			groupDirection.Normalized(),
+			GroupDirectionInfluence
+		).Normalized();
+
+		return alignedDirection * preferredVelocity.Length();
 	}
 
 	private OrcaAgentSnapshot GetAvoidanceSnapshot()
