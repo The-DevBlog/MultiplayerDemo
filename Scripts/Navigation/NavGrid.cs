@@ -242,6 +242,17 @@ public partial class NavGrid : Node
 		return new Vector3(x, y, z);
 	}
 
+	public bool AreCellsInSameSector(Vector2I firstCell, Vector2I secondCell)
+	{
+		NavSector firstSector = GetSectorForCell(firstCell);
+		NavSector secondSector = GetSectorForCell(secondCell);
+
+		return
+			firstSector != null &&
+			secondSector != null &&
+			firstSector.Position == secondSector.Position;
+	}
+
 	private Vector2I CellToSectorPosition(Vector2I cellPos)
 	{
 		int sectorX = cellPos.X / _sectorSize;

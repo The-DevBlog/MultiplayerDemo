@@ -10,15 +10,33 @@ public partial class Unit : Node3D
 	[Export] public int PlayerID { get; set; }
 	[Export] public int Speed { get; set; } = 10;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
-	[ExportGroup("Navigation")]
-	[Export(PropertyHint.Range, "0,40,1")] public int SlotSteeringRangeCells { get; set; } = 20;
 	[ExportGroup("Avoidance")]
-	[Export(PropertyHint.Range, "0.1,2.0,0.05")] public float AgentRadius { get; set; } = 0.65f;
-	[Export(PropertyHint.Range, "0.5,10.0,0.1")] public float AvoidanceRadius { get; set; } = 2.5f;
+	[Export(PropertyHint.Range, "0.1,2.0,0.05")]
+	public float AgentRadius
+	{
+		get => _agentRadius;
+		set
+		{
+			_agentRadius = value;
+			UpdateAvoidanceVisualization();
+		}
+	}
+	[Export(PropertyHint.Range, "0.5,10.0,0.1")]
+	public float AvoidanceRadius
+	{
+		get => _avoidanceRadius;
+		set
+		{
+			_avoidanceRadius = value;
+			UpdateAvoidanceVisualization();
+		}
+	}
 	[Export(PropertyHint.Range, "0.01,1.0,0.01")] public float AvoidancePriority { get; set; } = 1.0f;
 	[Export(PropertyHint.Range, "0.01,1.0,0.01")] public float IdleAvoidancePriority { get; set; } = 0.1f;
 	public int FlowFieldID { get; set; } = -1;
 	public Vector2I DestinationCell { get; private set; }
+	private float _agentRadius = 0.65f;
+	private float _avoidanceRadius = 2.5f;
 
 	// Lockstep Simulation
 	private const int SimScale = 1000; // converts floats to ints
@@ -79,7 +97,7 @@ public partial class Unit : Node3D
 		};
 
 		SimPosition = WorldToSimPosition(GlobalPosition);
-		ConfigureAvoidanceVisualization();
+		UpdateAvoidanceVisualization();
 	}
 
 	public void SimTick()
@@ -207,10 +225,11 @@ public partial class Unit : Node3D
 			return Vector2I.Zero;
 
 		Vector2I currentCellPos = _navGrid.WorldToCell(GetSimWorldPosition());
+		if (!_isSettlingAtDestination)
+			_isSettlingAtDestination = _navGrid.AreCellsInSameSector(currentCellPos, _flowTargetCell);
 
-		if (ShouldSteerToDestination(currentCellPos))
+		if (_isSettlingAtDestination)
 		{
-			_isSettlingAtDestination = true;
 			_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(DestinationCell));
 			_stopAfterWaypoint = true;
 			_hasWaypoint = true;
@@ -227,30 +246,7 @@ public partial class Unit : Node3D
 
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
-		return GetBlendedFlowVelocity(currentCellPos, direction);
-	}
-
-	private Vector2I GetBlendedFlowVelocity(Vector2I currentCell, Vector2I flowDirection)
-	{
-		Vector2I flowHeading = MoveTowards(Vector2I.Zero, flowDirection * SimScale, SimScale);
-		if (SlotSteeringRangeCells <= 0)
-			return MoveTowards(Vector2I.Zero, flowHeading, _speedPerTick);
-
-		int directSteeringRadius = GetDirectSteeringRadius();
-		int distanceToFlowTarget = GetCellDistance(currentCell, _flowTargetCell);
-		int slotWeight = directSteeringRadius + SlotSteeringRangeCells - distanceToFlowTarget;
-
-		if (slotWeight <= 0)
-			return MoveTowards(Vector2I.Zero, flowHeading, _speedPerTick);
-
-		_isSettlingAtDestination = true;
-		slotWeight = Math.Min(slotWeight, SlotSteeringRangeCells);
-		int flowWeight = SlotSteeringRangeCells - slotWeight;
-		Vector2I destinationSim = WorldToSimPosition(_navGrid.CellToWorld(DestinationCell));
-		Vector2I slotHeading = MoveTowards(Vector2I.Zero, destinationSim - SimPosition, SimScale);
-		Vector2I blendedHeading = flowHeading * flowWeight + slotHeading * slotWeight;
-
-		return MoveTowards(Vector2I.Zero, blendedHeading, _speedPerTick);
+		return MoveTowards(Vector2I.Zero, direction * SimScale, _speedPerTick);
 	}
 
 	private bool ShouldIgnoreGroupAvoidance(Unit neighbor)
@@ -279,7 +275,7 @@ public partial class Unit : Node3D
 		return LengthSquared(_currentWaypointSim - SimPosition) <= (long)arrivalDistance * arrivalDistance;
 	}
 
-	private void ConfigureAvoidanceVisualization()
+	private void UpdateAvoidanceVisualization()
 	{
 		if (_avoidanceMesh == null)
 			return;
@@ -296,24 +292,6 @@ public partial class Unit : Node3D
 			shaderMaterial.SetShaderParameter("AgentRadius", AgentRadius);
 			shaderMaterial.SetShaderParameter("AvoidanceRadius", AvoidanceRadius);
 		}
-	}
-
-	private bool ShouldSteerToDestination(Vector2I currentCell)
-	{
-		return GetCellDistance(currentCell, _flowTargetCell) <= GetDirectSteeringRadius();
-	}
-
-	private int GetDirectSteeringRadius()
-	{
-		return GetCellDistance(_flowTargetCell, DestinationCell) + 1;
-	}
-
-	private static int GetCellDistance(Vector2I first, Vector2I second)
-	{
-		int xDist = Math.Abs(first.X - second.X);
-		int yDist = Math.Abs(first.Y - second.Y);
-
-		return Math.Max(xDist, yDist);
 	}
 
 	private static Vector2I MoveTowards(Vector2I current, Vector2I target, int maxDistance)
