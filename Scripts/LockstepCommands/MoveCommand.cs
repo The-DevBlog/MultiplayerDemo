@@ -50,12 +50,18 @@ public class MoveCommand
 			}
 
 			List<Vector2I> assignments = NavGrid.AssignDestinationCells(tmpUnits, destCells, navGrid);
+			Rect2I destinationSectorRegion = navGrid.GetSectorRegion(destCells);
 
 			int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
 			int moveGroupID = GetMoveGroupID(cmd, tmpUnits);
 
 			for (int i = 0; i < tmpUnits.Count; i++)
-				tmpUnits[i].FollowFlowField(flowFieldID, assignments[i], cmd.Position, moveGroupID);
+				tmpUnits[i].FollowFlowField(
+					flowFieldID,
+					assignments[i],
+					destinationSectorRegion,
+					moveGroupID
+				);
 		}
 	}
 

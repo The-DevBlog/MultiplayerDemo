@@ -68,7 +68,7 @@ public partial class Unit : Node3D
 	private Vector2I _nextSimVelocity;
 
 	// navigation
-	private Vector2I _flowTargetCell;
+	private Rect2I _destinationSectorRegion;
 	private bool _isMoving;
 	private int _moveGroupID = -1;
 	private bool _isSettlingAtDestination;
@@ -195,7 +195,7 @@ public partial class Unit : Node3D
 	public void FollowFlowField(
 		int flowFieldID,
 		Vector2I destCell,
-		Vector2I flowTargetCell,
+		Rect2I destinationSectorRegion,
 		int moveGroupID = -1)
 	{
 		if (flowFieldID < 0)
@@ -203,7 +203,7 @@ public partial class Unit : Node3D
 
 		FlowFieldID = flowFieldID;
 		DestinationCell = destCell;
-		_flowTargetCell = flowTargetCell;
+		_destinationSectorRegion = destinationSectorRegion;
 		_isMoving = true;
 		_moveGroupID = moveGroupID;
 		_isSettlingAtDestination = false;
@@ -229,7 +229,10 @@ public partial class Unit : Node3D
 
 		Vector2I currentCellPos = _navGrid.WorldToCell(GetSimWorldPosition());
 		if (!_isSettlingAtDestination)
-			_isSettlingAtDestination = _navGrid.AreCellsInSameSector(currentCellPos, _flowTargetCell);
+			_isSettlingAtDestination = _navGrid.IsCellInSectorRegion(
+				currentCellPos,
+				_destinationSectorRegion
+			);
 
 		if (_isSettlingAtDestination)
 		{

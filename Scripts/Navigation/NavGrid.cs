@@ -276,6 +276,50 @@ public partial class NavGrid : Node
 			firstSector.Position == secondSector.Position;
 	}
 
+	public Rect2I GetSectorRegion(IReadOnlyList<Vector2I> cellPositions)
+	{
+		if (cellPositions.Count == 0)
+			return default;
+
+		Vector2I minSector = new(int.MaxValue, int.MaxValue);
+		Vector2I maxSector = new(int.MinValue, int.MinValue);
+
+		foreach (Vector2I cellPos in cellPositions)
+		{
+			NavSector sector = GetSectorForCell(cellPos);
+			if (sector == null)
+				continue;
+
+			minSector = new Vector2I(
+				Math.Min(minSector.X, sector.Position.X),
+				Math.Min(minSector.Y, sector.Position.Y)
+			);
+			maxSector = new Vector2I(
+				Math.Max(maxSector.X, sector.Position.X),
+				Math.Max(maxSector.Y, sector.Position.Y)
+			);
+		}
+
+		if (minSector.X == int.MaxValue)
+			return default;
+
+		return new Rect2I(minSector, maxSector - minSector + Vector2I.One);
+	}
+
+	public bool IsCellInSectorRegion(Vector2I cellPos, Rect2I sectorRegion)
+	{
+		NavSector sector = GetSectorForCell(cellPos);
+		if (sector == null)
+			return false;
+
+		Vector2I regionEnd = sectorRegion.Position + sectorRegion.Size;
+		return
+			sector.Position.X >= sectorRegion.Position.X &&
+			sector.Position.Y >= sectorRegion.Position.Y &&
+			sector.Position.X < regionEnd.X &&
+			sector.Position.Y < regionEnd.Y;
+	}
+
 	private Vector2I CellToSectorPosition(Vector2I cellPos)
 	{
 		int sectorX = cellPos.X / _sectorSize;
