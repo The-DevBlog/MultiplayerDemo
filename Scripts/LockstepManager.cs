@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using Godot;
 using Godot.Collections;
 
@@ -54,6 +53,11 @@ public partial class LockstepManager : Node
 			RunTick();
 			_timeAccumulator -= _tickDuration;
 		}
+
+		float interpolationFraction = (float)(_timeAccumulator / _tickDuration);
+		float visualTickFraction = (float)(delta / _tickDuration);
+		foreach (Unit unit in _units.Values)
+			unit.UpdateVisualPosition(interpolationFraction, visualTickFraction);
 	}
 
 	public void RequestMove(Array<int> unitIDs, Vector2I position)

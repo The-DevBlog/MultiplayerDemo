@@ -66,6 +66,8 @@ public partial class Unit : Node3D
 	private Vector2I _simVelocity;
 	private Vector2I _preferredSimVelocity;
 	private Vector2I _nextSimVelocity;
+	private Vector3 _previousWorldPosition;
+	private Vector3 _currentWorldPosition;
 
 	// navigation
 	private Rect2I _destinationSectorRegion;
@@ -99,6 +101,8 @@ public partial class Unit : Node3D
 		};
 
 		SimPosition = WorldToSimPosition(GlobalPosition);
+		_previousWorldPosition = GlobalPosition;
+		_currentWorldPosition = GlobalPosition;
 		UpdateAvoidanceVisualization();
 	}
 
@@ -170,8 +174,20 @@ public partial class Unit : Node3D
 		}
 
 		_simVelocity = SimPosition - previousSimPosition;
-		if (SimPosition != previousSimPosition)
-			ApplySimPositionToWorld();
+		AdvanceWorldPositionSnapshots();
+	}
+
+	public void UpdateVisualPosition(float interpolationFraction, float visualTickFraction)
+	{
+		Vector3 targetWorldPosition = _previousWorldPosition.Lerp(
+			_currentWorldPosition,
+			Mathf.Clamp(interpolationFraction, 0.0f, 1.0f)
+		);
+		float maxVisualDistance =
+			_speedPerTick / (float)SimScale *
+			Mathf.Max(visualTickFraction, 0.0f);
+
+		GlobalPosition = GlobalPosition.MoveToward(targetWorldPosition, maxVisualDistance);
 	}
 
 	public void SetAvoidanceVisualization(bool visible)
@@ -395,12 +411,13 @@ public partial class Unit : Node3D
 		);
 	}
 
-	private void ApplySimPositionToWorld()
+	private void AdvanceWorldPositionSnapshots()
 	{
 		Vector2 flatWorldPos = SimToFlatWorldPosition(SimPosition);
 		float y = _navGrid.GetTerrainHeight(flatWorldPos);
 
-		GlobalPosition = new Vector3(
+		_previousWorldPosition = _currentWorldPosition;
+		_currentWorldPosition = new Vector3(
 			flatWorldPos.X,
 			y,
 			flatWorldPos.Y

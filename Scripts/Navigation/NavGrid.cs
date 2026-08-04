@@ -353,23 +353,66 @@ public partial class NavGrid : Node
 	}
 
 	public static List<Vector2I> AssignDestinationCells(
-	List<Unit> units,
-	List<Vector2I> destCells,
-	NavGrid navGrid)
+		List<Unit> units,
+		List<Vector2I> destCells,
+		NavGrid navGrid)
 	{
 		var availableCells = new List<Vector2I>(destCells);
 		var assignments = new List<Vector2I>(units.Count);
+		var unitCells = new List<Vector2I>(units.Count);
+		var unitOrder = new List<int>(units.Count);
+		long unitCellTotalX = 0;
+		long unitCellTotalY = 0;
+		long destinationCellTotalX = 0;
+		long destinationCellTotalY = 0;
 
-		foreach (Unit unit in units)
+		for (int i = 0; i < units.Count; i++)
 		{
-			Vector2I unitCell = navGrid.WorldToCell(unit.GetSimWorldPosition());
+			Vector2I unitCell = navGrid.WorldToCell(units[i].GetSimWorldPosition());
+			unitCells.Add(unitCell);
+			unitOrder.Add(i);
+			assignments.Add(default);
+			unitCellTotalX += unitCell.X;
+			unitCellTotalY += unitCell.Y;
+		}
+
+		foreach (Vector2I destinationCell in destCells)
+		{
+			destinationCellTotalX += destinationCell.X;
+			destinationCellTotalY += destinationCell.Y;
+		}
+
+		long travelDirectionX = destinationCellTotalX * units.Count - unitCellTotalX * destCells.Count;
+		long travelDirectionY = destinationCellTotalY * units.Count - unitCellTotalY * destCells.Count;
+
+		unitOrder.Sort((leftIndex, rightIndex) =>
+		{
+			Vector2I leftCell = unitCells[leftIndex];
+			Vector2I rightCell = unitCells[rightIndex];
+			long leftProgress = leftCell.X * travelDirectionX + leftCell.Y * travelDirectionY;
+			long rightProgress = rightCell.X * travelDirectionX + rightCell.Y * travelDirectionY;
+			int progressComparison = rightProgress.CompareTo(leftProgress);
+
+			return progressComparison != 0
+				? progressComparison
+				: units[leftIndex].UnitID.CompareTo(units[rightIndex].UnitID);
+		});
+
+		foreach (int unitIndex in unitOrder)
+		{
+			Vector2I unitCell = unitCells[unitIndex];
 
 			int bestIdx = -1;
+			long bestSectorProgress = long.MinValue;
 			long bestDistSqrd = long.MaxValue;
 
 			for (int i = 0; i < availableCells.Count; i++)
 			{
 				Vector2I candidate = availableCells[i];
+				Vector2I candidateSector = navGrid.CellToSectorPosition(candidate);
+				long sectorProgress =
+					candidateSector.X * travelDirectionX +
+					candidateSector.Y * travelDirectionY;
 				Vector2I diff = candidate - unitCell;
 
 				long distSqrd =
@@ -382,15 +425,18 @@ public partial class NavGrid : Node
 					(candidate.Y == availableCells[bestIdx].Y &&
 					 candidate.X < availableCells[bestIdx].X);
 
-				if (distSqrd < bestDistSqrd ||
-					(distSqrd == bestDistSqrd && winsTie))
+				if (sectorProgress > bestSectorProgress ||
+					(sectorProgress == bestSectorProgress &&
+					 (distSqrd < bestDistSqrd ||
+					  (distSqrd == bestDistSqrd && winsTie))))
 				{
 					bestIdx = i;
+					bestSectorProgress = sectorProgress;
 					bestDistSqrd = distSqrd;
 				}
 			}
 
-			assignments.Add(availableCells[bestIdx]);
+			assignments[unitIndex] = availableCells[bestIdx];
 			availableCells.RemoveAt(bestIdx);
 		}
 
