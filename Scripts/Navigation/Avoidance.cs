@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-public readonly struct OrcaAgentSnapshot
+public readonly struct AvoidanceAgentSnapshot
 {
     public int UnitID { get; }
     public int MoveGroupID { get; }
@@ -12,7 +12,7 @@ public readonly struct OrcaAgentSnapshot
     public float Priority { get; }
     public bool IsMoving { get; }
 
-    public OrcaAgentSnapshot(
+    public AvoidanceAgentSnapshot(
         int unitID,
         int moveGroupID,
         Vector2 position,
@@ -31,19 +31,19 @@ public readonly struct OrcaAgentSnapshot
     }
 }
 
-public static class OrcaAvoidanceSolver
+public static class Avoidance
 {
     private const float Epsilon = 0.00001f;
     private const float LowSpeedRatio = 0.25f;
     private const float PassingBias = 0.5f;
     private const float SameGroupRadiusScale = 0.8f;
 
-    private readonly struct OrcaLine
+    private readonly struct AvoidanceLine
     {
         public Vector2 Point { get; }
         public Vector2 Direction { get; }
 
-        public OrcaLine(Vector2 point, Vector2 direction)
+        public AvoidanceLine(Vector2 point, Vector2 direction)
         {
             Point = point;
             Direction = direction;
@@ -51,16 +51,16 @@ public static class OrcaAvoidanceSolver
     }
 
     public static Vector2 Solve(
-        OrcaAgentSnapshot agent,
-        IReadOnlyList<OrcaAgentSnapshot> neighbors,
+        AvoidanceAgentSnapshot agent,
+        IReadOnlyList<AvoidanceAgentSnapshot> neighbors,
         Vector2 preferredVelocity,
         float maxSpeed,
         float timeHorizon,
         float groupTimeHorizon)
     {
-        var lines = new List<OrcaLine>(neighbors.Count);
+        var lines = new List<AvoidanceLine>(neighbors.Count);
 
-        foreach (OrcaAgentSnapshot neighbor in neighbors)
+        foreach (AvoidanceAgentSnapshot neighbor in neighbors)
         {
             if (agent.IsMoving && !neighbor.IsMoving)
                 continue;
@@ -129,7 +129,7 @@ public static class OrcaAvoidanceSolver
             }
 
             float responsibility = GetResponsibility(agent, neighbor);
-            lines.Add(new OrcaLine(
+            lines.Add(new AvoidanceLine(
                 agent.Velocity + responsibility * correction,
                 lineDirection
             ));
@@ -173,7 +173,7 @@ public static class OrcaAvoidanceSolver
         return result;
     }
 
-    private static float GetResponsibility(OrcaAgentSnapshot agent, OrcaAgentSnapshot neighbor)
+    private static float GetResponsibility(AvoidanceAgentSnapshot agent, AvoidanceAgentSnapshot neighbor)
     {
         if (!agent.IsMoving && neighbor.IsMoving)
             return 1.0f;
@@ -193,14 +193,14 @@ public static class OrcaAvoidanceSolver
     }
 
     private static bool LinearProgram1(
-        IReadOnlyList<OrcaLine> lines,
+        IReadOnlyList<AvoidanceLine> lines,
         int lineIndex,
         float radius,
         Vector2 optimalVelocity,
         bool directionOptimal,
         ref Vector2 result)
     {
-        OrcaLine line = lines[lineIndex];
+        AvoidanceLine line = lines[lineIndex];
         float dotProduct = line.Point.Dot(line.Direction);
         float discriminant = dotProduct * dotProduct + radius * radius - line.Point.LengthSquared();
 
@@ -250,7 +250,7 @@ public static class OrcaAvoidanceSolver
     }
 
     private static int LinearProgram2(
-        IReadOnlyList<OrcaLine> lines,
+        IReadOnlyList<AvoidanceLine> lines,
         float radius,
         Vector2 optimalVelocity,
         bool directionOptimal,
@@ -286,7 +286,7 @@ public static class OrcaAvoidanceSolver
     }
 
     private static void LinearProgram3(
-        IReadOnlyList<OrcaLine> lines,
+        IReadOnlyList<AvoidanceLine> lines,
         int beginLine,
         float radius,
         ref Vector2 result)
@@ -302,7 +302,7 @@ public static class OrcaAvoidanceSolver
             if (violation <= distance)
                 continue;
 
-            var projectedLines = new List<OrcaLine>(lineIndex);
+            var projectedLines = new List<AvoidanceLine>(lineIndex);
             for (int previousIndex = 0; previousIndex < lineIndex; previousIndex++)
             {
                 float determinant = Determinant(
@@ -328,7 +328,7 @@ public static class OrcaAvoidanceSolver
                 }
 
                 Vector2 direction = (lines[previousIndex].Direction - lines[lineIndex].Direction).Normalized();
-                projectedLines.Add(new OrcaLine(point, direction));
+                projectedLines.Add(new AvoidanceLine(point, direction));
             }
 
             Vector2 previousResult = result;

@@ -120,7 +120,7 @@ public partial class Unit : Node3D
 		if (neighbors.Count == 0)
 			return;
 
-		var neighborSnapshots = new List<OrcaAgentSnapshot>(Math.Min(neighbors.Count, MaxAvoidanceNeighbors));
+		var neighborSnapshots = new List<AvoidanceAgentSnapshot>(Math.Min(neighbors.Count, MaxAvoidanceNeighbors));
 		long neighborDistanceSquared = (long)AvoidanceRadiusSim * AvoidanceRadiusSim;
 
 		foreach (Unit neighbor in neighbors)
@@ -141,7 +141,7 @@ public partial class Unit : Node3D
 			return;
 
 		Vector2 preferredVelocity = GetGroupAlignedPreferredVelocity(neighbors);
-		Vector2 avoidanceVelocity = OrcaAvoidanceSolver.Solve(
+		Vector2 avoidanceVelocity = Avoidance.Solve(
 			GetAvoidanceSnapshot(),
 			neighborSnapshots,
 			preferredVelocity,
@@ -315,9 +315,9 @@ public partial class Unit : Node3D
 		return alignedDirection * preferredVelocity.Length();
 	}
 
-	private OrcaAgentSnapshot GetAvoidanceSnapshot()
+	private AvoidanceAgentSnapshot GetAvoidanceSnapshot()
 	{
-		return new OrcaAgentSnapshot(
+		return new AvoidanceAgentSnapshot(
 			UnitID,
 			_moveGroupID,
 			SimToFlatWorldPosition(SimPosition),
