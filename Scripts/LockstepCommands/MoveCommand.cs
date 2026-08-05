@@ -52,7 +52,11 @@ public class MoveCommand
 			List<Vector2I> assignments = NavGrid.AssignDestinationCells(tmpUnits, destCells, navGrid);
 			Rect2I destinationSectorRegion = navGrid.GetSectorRegion(destCells);
 
-			int flowFieldID = navGrid.BuildField(startCells, cmd.Position);
+			int flowFieldID = navGrid.BuildField(
+				startCells,
+				cmd.Position,
+				destinationSectorRegion
+			);
 			int moveGroupID = GetMoveGroupID(cmd, tmpUnits);
 
 			for (int i = 0; i < tmpUnits.Count; i++)

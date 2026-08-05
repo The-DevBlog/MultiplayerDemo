@@ -3,7 +3,7 @@ using Godot;
 public partial class LocalResources : Node3D
 {
 	[Export] public Vector2I MapSize { get; set; }
-	[Export] public int UnitCount { get; set; } = 1;
+	[Export] public int UnitCount { get; set; } = 300;
 	[Export] public PackedScene UnitScene { get; set; }
 	[ExportGroup("Debug")]
 	[Export]
@@ -26,7 +26,7 @@ public partial class LocalResources : Node3D
 	}
 
 	private MeshInstance3D _ground;
-	private float _space = 2.0f;
+	private float _space = 7.0f;
 	private bool _showAvoidanceVisualization;
 	private const string DefaultUnitScenePath = "res://Scenes/unit.tscn";
 

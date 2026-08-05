@@ -13,7 +13,7 @@ public partial class NavGrid : Node
 	[Export] public Color TargetColor { get; set; } = new(1.0f, 0.9f, 0.1f, 1.0f);
 	[Export] private uint _terrainCollisionMask = uint.MaxValue;
 	[Export] private float _terrainRaycastHeight = 1000.0f;
-	private int _unitSpacingInCells = 2;
+	private int _unitSpacingInCells = 3;
 	private int _width { get; set; }
 	private int _height { get; set; }
 	private int _sectorSize = 15;
@@ -25,7 +25,7 @@ public partial class NavGrid : Node
 	private float[,] _heightMap;
 	private Dictionary<int, NavFlowField> _flowFields = new();
 	private int _nextFlowFieldID = 1;
-	private int CellSize = 1;
+	private int CellSize = 2;
 	private int _diagonalCost = 14;
 	private int _straightCost = 10;
 	private readonly NavGridDebugRenderer _debugRenderer = new();
@@ -87,26 +87,32 @@ public partial class NavGrid : Node
 		}
 	}
 
-	public int BuildField(List<Vector2I> startPositions, Vector2I targetPos)
+	public int BuildField(
+		List<Vector2I> startPositions,
+		Vector2I targetPos,
+		Rect2I targetSectorRegion)
 	{
 		const int maxExpansionRadius = 2;
 
-		HashSet<Vector2I> baseAllowedSectors = BuildAllowedSectorSet(startPositions, targetPos);
+		HashSet<Vector2I> baseAllowedSectors = BuildAllowedSectorSet(
+			startPositions,
+			targetPos,
+			targetSectorRegion
+		);
 		HashSet<Vector2I> resolvedAllowedSectors = null;
 
 		for (int radius = 0; radius <= maxExpansionRadius; radius++)
 		{
 			HashSet<Vector2I> allowedSectors = ExpandAllowedSectors(baseAllowedSectors, radius);
 
-			bool isIntegrationFieldBuilt = BuildIntegrationField(targetPos, allowedSectors);
+			bool isIntegrationFieldBuilt = BuildIntegrationField(targetSectorRegion, allowedSectors);
 			if (!isIntegrationFieldBuilt)
 				continue;
 
 			if (!AreStartCellsReachable(startPositions))
 				continue;
 
-			resolvedAllowedSectors = ExpandAllowedSectors(allowedSectors, 1);
-			BuildIntegrationField(targetPos, resolvedAllowedSectors);
+			resolvedAllowedSectors = allowedSectors;
 			break;
 		}
 
@@ -114,14 +120,18 @@ public partial class NavGrid : Node
 		{
 			HashSet<Vector2I> allSectors = BuildAllSectorSet();
 
-			bool isIntegrationFieldBuilt = BuildIntegrationField(targetPos, allSectors);
+			bool isIntegrationFieldBuilt = BuildIntegrationField(targetSectorRegion, allSectors);
 			if (!isIntegrationFieldBuilt)
 				return -1;
 
 			resolvedAllowedSectors = allSectors;
 		}
 
-		NavFlowField flowField = BuildFlowField(resolvedAllowedSectors, targetPos);
+		NavFlowField flowField = BuildFlowField(
+			resolvedAllowedSectors,
+			targetPos,
+			targetSectorRegion
+		);
 		int flowFieldID = _nextFlowFieldID++;
 		_flowFields[flowFieldID] = flowField;
 
@@ -644,14 +654,24 @@ public partial class NavGrid : Node
 		return true;
 	}
 
-	private HashSet<Vector2I> BuildAllowedSectorSet(List<Vector2I> startCellPositions, Vector2I targetCellPos)
+	private HashSet<Vector2I> BuildAllowedSectorSet(
+		List<Vector2I> startCellPositions,
+		Vector2I targetCellPos,
+		Rect2I targetSectorRegion)
 	{
 		var allowedSectors = new HashSet<Vector2I>();
 		var representativeStartCellBySector = new Dictionary<Vector2I, Vector2I>();
 
-		NavSector targetSector = GetSectorForCell(targetCellPos);
-		if (targetSector != null)
-			allowedSectors.Add(targetSector.Position);
+		Vector2I targetRegionEnd = targetSectorRegion.Position + targetSectorRegion.Size;
+		for (int sectorX = targetSectorRegion.Position.X; sectorX < targetRegionEnd.X; sectorX++)
+		{
+			for (int sectorY = targetSectorRegion.Position.Y; sectorY < targetRegionEnd.Y; sectorY++)
+			{
+				NavSector targetSector = GetSector(new Vector2I(sectorX, sectorY));
+				if (targetSector != null)
+					allowedSectors.Add(targetSector.Position);
+			}
+		}
 
 		foreach (Vector2I startCellPos in startCellPositions)
 		{
@@ -740,7 +760,10 @@ public partial class NavGrid : Node
 		return path;
 	}
 
-	private NavFlowField BuildFlowField(HashSet<Vector2I> allowedSectors, Vector2I targetPos)
+	private NavFlowField BuildFlowField(
+		HashSet<Vector2I> allowedSectors,
+		Vector2I targetPos,
+		Rect2I targetSectorRegion)
 	{
 		Vector2I[,] directions = new Vector2I[_width, _height];
 		int[,] integrationCosts = new int[_width, _height];
@@ -773,8 +796,22 @@ public partial class NavGrid : Node
 			directions[cell.Position.X, cell.Position.Y] = direction;
 			integrationCosts[cell.Position.X, cell.Position.Y] = cell.IntegrationCost;
 
+			Vector2I debugDirection = direction;
+			if (debugDirection == Vector2I.Zero &&
+				cell.Walkable &&
+				sector != null &&
+				targetSectorRegion.HasPoint(sector.Position) &&
+				cell.Position != targetPos)
+			{
+				Vector2I targetOffset = targetPos - cell.Position;
+				debugDirection = new Vector2I(
+					Math.Sign(targetOffset.X),
+					Math.Sign(targetOffset.Y)
+				);
+			}
+
 			// Temporary: keep the debug overlay showing the most recently built field.
-			cell.Direction = directions[cell.Position.X, cell.Position.Y];
+			cell.Direction = debugDirection;
 		}
 
 		return new NavFlowField(targetPos, directions, integrationCosts, allowedSectors);
@@ -881,18 +918,38 @@ public partial class NavGrid : Node
 		return true;
 	}
 
-	private bool BuildIntegrationField(Vector2I targetPos, HashSet<Vector2I> allowedSectors)
+	private bool BuildIntegrationField(Rect2I targetSectorRegion, HashSet<Vector2I> allowedSectors)
 	{
 		ResetIntegrationCosts();
 
-		NavCell targetCell = GetCell(targetPos);
-		if (targetCell == null)
-			return false;
-
-		targetCell.IntegrationCost = 0;
-
 		var queue = new Queue<NavCell>();
-		queue.Enqueue(targetCell);
+		Vector2I targetRegionEnd = targetSectorRegion.Position + targetSectorRegion.Size;
+
+		for (int sectorX = targetSectorRegion.Position.X; sectorX < targetRegionEnd.X; sectorX++)
+		{
+			for (int sectorY = targetSectorRegion.Position.Y; sectorY < targetRegionEnd.Y; sectorY++)
+			{
+				NavSector targetSector = GetSector(new Vector2I(sectorX, sectorY));
+				if (targetSector == null || !allowedSectors.Contains(targetSector.Position))
+					continue;
+
+				for (int cellX = targetSector.MinCell.X; cellX <= targetSector.MaxCell.X; cellX++)
+				{
+					for (int cellY = targetSector.MinCell.Y; cellY <= targetSector.MaxCell.Y; cellY++)
+					{
+						NavCell targetCell = GetCell(new Vector2I(cellX, cellY));
+						if (targetCell == null || !targetCell.Walkable)
+							continue;
+
+						targetCell.IntegrationCost = 0;
+						queue.Enqueue(targetCell);
+					}
+				}
+			}
+		}
+
+		if (queue.Count == 0)
+			return false;
 
 		while (queue.Count > 0)
 		{

@@ -20,8 +20,7 @@ size = Vector3(1, 1, 18.96)
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
-MapSize = Vector2i(300, 300)
-UnitCount = 1000
+MapSize = Vector2i(500, 500)
 UnitScene = ExtResource("1_vlv1q")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
@@ -30,7 +29,7 @@ transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.0
 mesh = SubResource("QuadMesh_tkwp6")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1119935622]
-transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 76.44799, 57.546463)
+transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 152.7529, 113.959335)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1027563375]
 transform = Transform3D(0.61221963, 0.7475729, 0.2575304, 0, -0.32570428, 0.9454717, 0.79068774, -0.5788363, -0.19940256, 0, 0, 0)

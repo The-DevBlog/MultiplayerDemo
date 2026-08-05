@@ -11,7 +11,7 @@ public partial class Unit : Node3D
 	[Export] public int Speed { get; set; } = 10;
 	[Export] public NodePath MeshPath { get; set; } = "MeshInstance3D";
 	[ExportGroup("Avoidance")]
-	[Export(PropertyHint.Range, "0.1,2.0,0.05")]
+	[Export(PropertyHint.Range, "0.1,10.0,0.05")]
 	public float AgentRadius
 	{
 		get => _agentRadius;
@@ -121,7 +121,7 @@ public partial class Unit : Node3D
 
 	public void PrepareAvoidanceVelocity(IReadOnlyList<Unit> neighbors)
 	{
-		if (neighbors.Count == 0)
+		if (neighbors.Count == 0 || (_isMoving && _preferredSimVelocity == Vector2I.Zero))
 			return;
 
 		var neighborSnapshots = new List<AvoidanceAgentSnapshot>(Math.Min(neighbors.Count, MaxAvoidanceNeighbors));
@@ -130,6 +130,7 @@ public partial class Unit : Node3D
 		foreach (Unit neighbor in neighbors)
 		{
 			if (neighbor == this ||
+				(!_isMoving && !neighbor._isMoving) ||
 				ShouldIgnoreGroupAvoidance(neighbor) ||
 				GetDistanceSquared(neighbor) > neighborDistanceSquared)
 			{
@@ -160,9 +161,10 @@ public partial class Unit : Node3D
 	public void ApplySimTick()
 	{
 		Vector2I previousSimPosition = SimPosition;
+		bool stoppedAtWaypoint = false;
 		SimPosition += _nextSimVelocity;
 
-		if (_isMoving && _hasWaypoint && HasReachedWaypoint())
+		if (_isMoving && _hasWaypoint && HasReachedWaypoint(previousSimPosition))
 		{
 			SimPosition = _currentWaypointSim;
 			_hasWaypoint = false;
@@ -170,10 +172,13 @@ public partial class Unit : Node3D
 			if (_stopAfterWaypoint)
 			{
 				_isMoving = false;
+				stoppedAtWaypoint = true;
 			}
 		}
 
-		_simVelocity = SimPosition - previousSimPosition;
+		_simVelocity = stoppedAtWaypoint
+			? Vector2I.Zero
+			: SimPosition - previousSimPosition;
 		AdvanceWorldPositionSnapshots();
 	}
 
@@ -344,10 +349,36 @@ public partial class Unit : Node3D
 		);
 	}
 
-	private bool HasReachedWaypoint()
+	private bool HasReachedWaypoint(Vector2I previousSimPosition)
 	{
 		int arrivalDistance = Math.Max(MinSpeedPerTick, Mathf.RoundToInt(AgentRadius * SimScale * 0.2f));
-		return LengthSquared(_currentWaypointSim - SimPosition) <= (long)arrivalDistance * arrivalDistance;
+		long arrivalDistanceSquared = (long)arrivalDistance * arrivalDistance;
+		Vector2I previousOffset = _currentWaypointSim - previousSimPosition;
+		Vector2I currentOffset = _currentWaypointSim - SimPosition;
+
+		if (LengthSquared(previousOffset) <= arrivalDistanceSquared ||
+			LengthSquared(currentOffset) <= arrivalDistanceSquared)
+		{
+			return true;
+		}
+
+		Vector2I movement = SimPosition - previousSimPosition;
+		long movementLengthSquared = LengthSquared(movement);
+		if (movementLengthSquared == 0)
+			return false;
+
+		long projection =
+			(long)previousOffset.X * movement.X +
+			(long)previousOffset.Y * movement.Y;
+		if (projection <= 0 || projection >= movementLengthSquared)
+			return false;
+
+		long crossMagnitude = Math.Abs(
+			(long)previousOffset.X * movement.Y -
+			(long)previousOffset.Y * movement.X
+		);
+		long maxCrossMagnitude = IntegerSqrt(arrivalDistanceSquared * movementLengthSquared);
+		return crossMagnitude <= maxCrossMagnitude;
 	}
 
 	private void UpdateAvoidanceVisualization()
@@ -440,10 +471,9 @@ public partial class Unit : Node3D
 
 		while (left <= right)
 		{
-			long middle = (left + right) / 2;
-			long square = middle * middle;
+			long middle = left + (right - left) / 2;
 
-			if (square <= value)
+			if (middle <= value / middle)
 			{
 				result = middle;
 				left = middle + 1;
@@ -454,6 +484,6 @@ public partial class Unit : Node3D
 			}
 		}
 
-		return (int)result;
+		return (int)Math.Min(result, int.MaxValue);
 	}
 }
