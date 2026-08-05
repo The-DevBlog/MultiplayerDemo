@@ -32,6 +32,14 @@ window/stretch/aspect="expand"
 
 project/assembly_name="MultiplayerDemo"
 
+[editor]
+
+movie_writer/movie_file="C:/Users/andrew/videos/godotCapture.ogv"
+
+[layer_names]
+
+3d_physics/layer_2="Terrain"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

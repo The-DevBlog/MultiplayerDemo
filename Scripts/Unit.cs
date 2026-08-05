@@ -77,6 +77,9 @@ public partial class Unit : Node3D
 	private Vector2I _currentWaypointSim;
 	private bool _hasWaypoint;
 	private bool _stopAfterWaypoint;
+	private List<Vector2I> _finalPath = new();
+	private int _finalPathIndex;
+	private bool _hasFinalPath;
 
 	public bool IsSelected => _isSelected;
 	private bool _isSelected;
@@ -230,6 +233,9 @@ public partial class Unit : Node3D
 		_isSettlingAtDestination = false;
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
+		_finalPath.Clear();
+		_finalPathIndex = 0;
+		_hasFinalPath = false;
 	}
 
 	public Vector3 GetSimWorldPosition()
@@ -249,19 +255,22 @@ public partial class Unit : Node3D
 			return Vector2I.Zero;
 
 		Vector2I currentCellPos = _navGrid.WorldToCell(GetSimWorldPosition());
-		if (!_isSettlingAtDestination)
-			_isSettlingAtDestination = _navGrid.IsCellInSectorRegion(
+		if (!_isSettlingAtDestination &&
+			_navGrid.IsCellInSectorRegion(currentCellPos, _destinationSectorRegion))
+		{
+			_isSettlingAtDestination = true;
+			_finalPathIndex = 0;
+			_hasFinalPath = _navGrid.TryFindPath(
 				currentCellPos,
-				_destinationSectorRegion
+				DestinationCell,
+				out _finalPath
 			);
+			_hasWaypoint = false;
+			_stopAfterWaypoint = false;
+		}
 
 		if (_isSettlingAtDestination)
-		{
-			_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(DestinationCell));
-			_stopAfterWaypoint = true;
-			_hasWaypoint = true;
-			return MoveTowards(Vector2I.Zero, _currentWaypointSim - SimPosition, _speedPerTick);
-		}
+			return GetFinalDestinationVelocity();
 
 		Vector2I direction = _navGrid.GetDirection(FlowFieldID, currentCellPos);
 		if (direction == Vector2I.Zero)
@@ -286,6 +295,25 @@ public partial class Unit : Node3D
 		_hasWaypoint = false;
 		_stopAfterWaypoint = false;
 		return MoveTowards(Vector2I.Zero, direction * SimScale, _speedPerTick);
+	}
+
+	private Vector2I GetFinalDestinationVelocity()
+	{
+		if (!_hasFinalPath)
+			return Vector2I.Zero;
+
+		if (!_hasWaypoint)
+		{
+			Vector2I waypointCell = _finalPathIndex < _finalPath.Count
+				? _finalPath[_finalPathIndex++]
+				: DestinationCell;
+
+			_currentWaypointSim = WorldToSimPosition(_navGrid.CellToWorld(waypointCell));
+			_stopAfterWaypoint = _finalPathIndex >= _finalPath.Count;
+			_hasWaypoint = true;
+		}
+
+		return MoveTowards(Vector2I.Zero, _currentWaypointSim - SimPosition, _speedPerTick);
 	}
 
 	private bool ShouldIgnoreGroupAvoidance(Unit neighbor)

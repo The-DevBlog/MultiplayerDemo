@@ -4,6 +4,18 @@ using Godot;
 
 public partial class NavGrid : Node
 {
+	[Signal] public delegate void NavigationReadyEventHandler();
+
+	[ExportGroup("Terrain")]
+	[Export(PropertyHint.Range, "0,90,1")]
+	private int _maxWalkableSlopeDegrees = 25;
+	public bool IsNavReady { get; private set; }
+	private ushort[] _slopeMap;
+	private byte[] _navigationPacket;
+	private readonly HashSet<int> _pendingNavPeers = new();
+
+
+	[ExportGroup("Debug")]
 	[Export] private bool _drawNavGrid;
 	[Export] public Color GridColor { get; set; } = new(1.0f, 1.0f, 1.0f, 0.35f);
 	[Export] public Color SectorColor { get; set; } = new(1.0f, 0.55f, 0.1f, 0.9f);
@@ -11,7 +23,7 @@ public partial class NavGrid : Node
 	[Export] public Color FlowColor { get; set; } = new(0.1f, 0.75f, 1.0f, 0.9f);
 	[Export] public Color PortalColor { get; set; } = new(0.2f, 1.0f, 0.35f, 0.95f);
 	[Export] public Color TargetColor { get; set; } = new(1.0f, 0.9f, 0.1f, 1.0f);
-	[Export] private uint _terrainCollisionMask = uint.MaxValue;
+	[Export(PropertyHint.Layers3DPhysics)] private uint _terrainCollisionMask = 1u << 1;
 	[Export] private float _terrainRaycastHeight = 1000.0f;
 	private int _unitSpacingInCells = 3;
 	private int _width { get; set; }
@@ -63,9 +75,10 @@ public partial class NavGrid : Node
 
 		InitGrid();
 		InitSectors();
-		LoadObstacles();
-		BuildSectorPortals();
-		BuildHeightMap();
+		// LoadObstacles();
+		// BuildSectorPortals();
+		// CallDeferred(nameof(BuildHeightMap));
+		CallDeferred(nameof(InitNavigation));
 
 		_debugRenderer.SetSectorSize(_sectorSize);
 		_debugRenderer.SetColors(GridColor, BlockedColor, FlowColor, TargetColor, SectorColor, PortalColor);
@@ -249,6 +262,75 @@ public partial class NavGrid : Node
 		return flowField.TryGetNearestDirectedCell(cellPos, maxSearchRadius, out flowCell);
 	}
 
+	public bool TryFindPath(
+		Vector2I startCellPos,
+		Vector2I targetCellPos,
+		out List<Vector2I> path)
+	{
+		path = new List<Vector2I>();
+		NavCell startCell = GetCell(startCellPos);
+		NavCell targetCell = GetCell(targetCellPos);
+
+		if (startCell == null || targetCell == null || !targetCell.Walkable)
+			return false;
+
+		if (startCellPos == targetCellPos)
+			return true;
+
+		var frontier = new PriorityQueue<Vector2I, (int Cost, int Y, int X)>();
+		var costSoFar = new Dictionary<Vector2I, int>();
+		var cameFrom = new Dictionary<Vector2I, Vector2I>();
+
+		frontier.Enqueue(startCellPos, (0, startCellPos.Y, startCellPos.X));
+		costSoFar[startCellPos] = 0;
+
+		while (frontier.TryDequeue(out Vector2I currentCellPos, out _))
+		{
+			if (currentCellPos == targetCellPos)
+				break;
+
+			int currentCost = costSoFar[currentCellPos];
+			foreach (NavCell neighbor in GetNeighbors(currentCellPos))
+			{
+				int newCost =
+					currentCost + GetMoveCost(currentCellPos, neighbor.Position) * neighbor.Cost;
+
+				if (costSoFar.TryGetValue(neighbor.Position, out int existingCost) &&
+					existingCost <= newCost)
+				{
+					continue;
+				}
+
+				costSoFar[neighbor.Position] = newCost;
+				cameFrom[neighbor.Position] = currentCellPos;
+
+				Vector2I targetOffset = targetCellPos - neighbor.Position;
+				int diagonalSteps = Math.Min(Math.Abs(targetOffset.X), Math.Abs(targetOffset.Y));
+				int straightSteps = Math.Max(Math.Abs(targetOffset.X), Math.Abs(targetOffset.Y)) - diagonalSteps;
+				int estimatedCost =
+					diagonalSteps * _diagonalCost + straightSteps * _straightCost;
+
+				frontier.Enqueue(
+					neighbor.Position,
+					(newCost + estimatedCost, neighbor.Position.Y, neighbor.Position.X)
+				);
+			}
+		}
+
+		if (!cameFrom.ContainsKey(targetCellPos))
+			return false;
+
+		Vector2I pathCellPos = targetCellPos;
+		while (pathCellPos != startCellPos)
+		{
+			path.Add(pathCellPos);
+			pathCellPos = cameFrom[pathCellPos];
+		}
+
+		path.Reverse();
+		return true;
+	}
+
 	public void SetWalkable(Vector2I cellPos, bool walkable)
 	{
 		NavCell cell = GetCell(cellPos);
@@ -330,14 +412,6 @@ public partial class NavGrid : Node
 			sector.Position.Y < regionEnd.Y;
 	}
 
-	private Vector2I CellToSectorPosition(Vector2I cellPos)
-	{
-		int sectorX = cellPos.X / _sectorSize;
-		int sectorY = cellPos.Y / _sectorSize;
-
-		return new Vector2I(sectorX, sectorY);
-	}
-
 	public float GetTerrainHeight(Vector2 worldPos)
 	{
 		if (_heightMap == null)
@@ -349,6 +423,48 @@ public partial class NavGrid : Node
 			return GetFallbackGroundHeight();
 
 		return _heightMap[cell.X, cell.Y];
+	}
+
+	public bool RebuildHeightMap(Vector2I sectorPosition)
+	{
+		return RebuildHeightMap(new Rect2I(sectorPosition, Vector2I.One));
+	}
+
+	public bool RebuildHeightMap(Rect2I sectorRegion)
+	{
+		if (!TryGetCellRegion(sectorRegion, out Rect2I cellRegion))
+			return false;
+
+		_heightMap ??= new float[_width, _height];
+		SampleHeightMapCells(cellRegion);
+		return true;
+	}
+
+	public bool RebuildNavData(Vector2I sectorPosition)
+	{
+		return RebuildNavData(new Rect2I(sectorPosition, Vector2I.One));
+	}
+
+	public bool RebuildNavData(Rect2I sectorRegion)
+	{
+		if (!Multiplayer.IsServer())
+		{
+			GD.PushError("[NavGrid.RebuildNavData] Only the server may rebuild navigation data.");
+			return false;
+		}
+
+		if (!IsNavReady || !TryGetCellRegion(sectorRegion, out Rect2I cellRegion))
+			return false;
+
+		ResetWalkability(cellRegion);
+		SampleNavDataCells(cellRegion);
+		LoadObstacles();
+
+		_flowFields.Clear();
+		_navigationPacket = null;
+		BuildSectorPortals();
+		DrawNavigationState();
+		return true;
 	}
 
 	public bool TryProjectToTerrain(Vector3 rayOrigin, Vector3 rayDirection, out Vector3 terrainPoint)
@@ -392,42 +508,51 @@ public partial class NavGrid : Node
 			destinationCellTotalY += destinationCell.Y;
 		}
 
-		long travelDirectionX = destinationCellTotalX * units.Count - unitCellTotalX * destCells.Count;
-		long travelDirectionY = destinationCellTotalY * units.Count - unitCellTotalY * destCells.Count;
-
 		unitOrder.Sort((leftIndex, rightIndex) =>
 		{
 			Vector2I leftCell = unitCells[leftIndex];
 			Vector2I rightCell = unitCells[rightIndex];
-			long leftProgress = leftCell.X * travelDirectionX + leftCell.Y * travelDirectionY;
-			long rightProgress = rightCell.X * travelDirectionX + rightCell.Y * travelDirectionY;
-			int progressComparison = rightProgress.CompareTo(leftProgress);
+			long leftOffsetX = (long)leftCell.X * units.Count - unitCellTotalX;
+			long leftOffsetY = (long)leftCell.Y * units.Count - unitCellTotalY;
+			long rightOffsetX = (long)rightCell.X * units.Count - unitCellTotalX;
+			long rightOffsetY = (long)rightCell.Y * units.Count - unitCellTotalY;
+			long leftDistanceSquared = leftOffsetX * leftOffsetX + leftOffsetY * leftOffsetY;
+			long rightDistanceSquared = rightOffsetX * rightOffsetX + rightOffsetY * rightOffsetY;
+			int distanceComparison = rightDistanceSquared.CompareTo(leftDistanceSquared);
+			if (distanceComparison != 0)
+				return distanceComparison;
 
-			return progressComparison != 0
-				? progressComparison
+			int rowComparison = leftCell.Y.CompareTo(rightCell.Y);
+			if (rowComparison != 0)
+				return rowComparison;
+
+			int columnComparison = leftCell.X.CompareTo(rightCell.X);
+			return columnComparison != 0
+				? columnComparison
 				: units[leftIndex].UnitID.CompareTo(units[rightIndex].UnitID);
 		});
 
 		foreach (int unitIndex in unitOrder)
 		{
 			Vector2I unitCell = unitCells[unitIndex];
+			long unitOffsetX = (long)unitCell.X * units.Count - unitCellTotalX;
+			long unitOffsetY = (long)unitCell.Y * units.Count - unitCellTotalY;
 
 			int bestIdx = -1;
-			long bestSectorProgress = long.MinValue;
-			long bestDistSqrd = long.MaxValue;
+			long bestShapeError = long.MaxValue;
 
 			for (int i = 0; i < availableCells.Count; i++)
 			{
 				Vector2I candidate = availableCells[i];
-				Vector2I candidateSector = navGrid.CellToSectorPosition(candidate);
-				long sectorProgress =
-					candidateSector.X * travelDirectionX +
-					candidateSector.Y * travelDirectionY;
-				Vector2I diff = candidate - unitCell;
-
-				long distSqrd =
-					(long)diff.X * diff.X +
-					(long)diff.Y * diff.Y;
+				long candidateOffsetX =
+					(long)candidate.X * destCells.Count - destinationCellTotalX;
+				long candidateOffsetY =
+					(long)candidate.Y * destCells.Count - destinationCellTotalY;
+				long offsetErrorX = candidateOffsetX - unitOffsetX;
+				long offsetErrorY = candidateOffsetY - unitOffsetY;
+				long shapeError =
+					offsetErrorX * offsetErrorX +
+					offsetErrorY * offsetErrorY;
 
 				bool winsTie =
 					bestIdx < 0 ||
@@ -435,14 +560,11 @@ public partial class NavGrid : Node
 					(candidate.Y == availableCells[bestIdx].Y &&
 					 candidate.X < availableCells[bestIdx].X);
 
-				if (sectorProgress > bestSectorProgress ||
-					(sectorProgress == bestSectorProgress &&
-					 (distSqrd < bestDistSqrd ||
-					  (distSqrd == bestDistSqrd && winsTie))))
+				if (shapeError < bestShapeError ||
+					(shapeError == bestShapeError && winsTie))
 				{
 					bestIdx = i;
-					bestSectorProgress = sectorProgress;
-					bestDistSqrd = distSqrd;
+					bestShapeError = shapeError;
 				}
 			}
 
@@ -451,6 +573,110 @@ public partial class NavGrid : Node
 		}
 
 		return assignments;
+	}
+
+	private void InitNavigation()
+	{
+		if (Multiplayer.IsServer())
+			BuildHostNavData();
+		else
+		{
+			BuildHeightMap(); // Visual Y only
+			RpcId(1, nameof(RequestNavData));
+		}
+	}
+
+	private void BuildHostNavData()
+	{
+		_heightMap = new float[_width, _height];
+		_slopeMap = new ushort[_width * _height];
+
+		LoadObstacles();
+		SampleNavDataCells(new Rect2I(Vector2I.Zero, new Vector2I(_width, _height)));
+
+		BuildSectorPortals();
+		IsNavReady = true;
+		EmitSignal(SignalName.NavigationReady);
+		DrawNavigationState();
+	}
+
+	private void SampleNavDataCells(Rect2I cellRegion)
+	{
+		_heightMap ??= new float[_width, _height];
+		_slopeMap ??= new ushort[_width * _height];
+
+		int maxSlopeTenths = _maxWalkableSlopeDegrees * 10;
+		float fallbackHeight = GetFallbackGroundHeight();
+		const int samplesPerAxis = 3;
+		float sampleStep = CellSize / (float)samplesPerAxis;
+		Vector2I cellRegionEnd = cellRegion.Position + cellRegion.Size;
+
+		for (int x = cellRegion.Position.X; x < cellRegionEnd.X; x++)
+		{
+			for (int y = cellRegion.Position.Y; y < cellRegionEnd.Y; y++)
+			{
+				int index = y * _width + x;
+				NavCell cell = _cells[x, y];
+				float cellMinX = _gridOrigin.X + x * CellSize;
+				float cellMinZ = _gridOrigin.Y + y * CellSize;
+				ushort maximumCellSlope = 0;
+				bool missingTerrain = false;
+
+				_heightMap[x, y] = fallbackHeight;
+
+				for (int sampleX = 0; sampleX < samplesPerAxis; sampleX++)
+				{
+					for (int sampleY = 0; sampleY < samplesPerAxis; sampleY++)
+					{
+						float worldX = cellMinX + (sampleX + 0.5f) * sampleStep;
+						float worldZ = cellMinZ + (sampleY + 0.5f) * sampleStep;
+
+						if (!TryGetTerrainPoint(
+							new Vector2(worldX, worldZ),
+							out Vector3 terrainPoint,
+							out Vector3 terrainNormal))
+						{
+							missingTerrain = true;
+							continue;
+						}
+
+						if (sampleX == samplesPerAxis / 2 && sampleY == samplesPerAxis / 2)
+							_heightMap[x, y] = terrainPoint.Y;
+
+						float alignment = Mathf.Clamp(
+							Mathf.Abs(terrainNormal.Dot(Vector3.Up)),
+							0.0f,
+							1.0f
+						);
+						ushort sampleSlope = (ushort)Mathf.Clamp(
+							Mathf.RoundToInt(Mathf.RadToDeg(Mathf.Acos(alignment)) * 10.0f),
+							0,
+							900
+						);
+
+						if (sampleSlope > maximumCellSlope)
+							maximumCellSlope = sampleSlope;
+					}
+				}
+
+				if (missingTerrain)
+					maximumCellSlope = 900;
+
+				_slopeMap[index] = maximumCellSlope;
+				cell.SlopeTenths = maximumCellSlope;
+
+				if (maximumCellSlope > maxSlopeTenths)
+					cell.Walkable = false;
+			}
+		}
+	}
+
+	private Vector2I CellToSectorPosition(Vector2I cellPos)
+	{
+		int sectorX = cellPos.X / _sectorSize;
+		int sectorY = cellPos.Y / _sectorSize;
+
+		return new Vector2I(sectorX, sectorY);
 	}
 
 	private NavCell GetCell(Vector2I cellPos)
@@ -612,10 +838,16 @@ public partial class NavGrid : Node
 	private void BuildHeightMap()
 	{
 		_heightMap = new float[_width, _height];
+		SampleHeightMapCells(new Rect2I(Vector2I.Zero, new Vector2I(_width, _height)));
+	}
 
-		for (int x = 0; x < _width; x++)
+	private void SampleHeightMapCells(Rect2I cellRegion)
+	{
+		Vector2I cellRegionEnd = cellRegion.Position + cellRegion.Size;
+
+		for (int x = cellRegion.Position.X; x < cellRegionEnd.X; x++)
 		{
-			for (int y = 0; y < _height; y++)
+			for (int y = cellRegion.Position.Y; y < cellRegionEnd.Y; y++)
 			{
 				float worldX = _gridOrigin.X + x * CellSize + CellSize / 2.0f;
 				float worldZ = _gridOrigin.Y + y * CellSize + CellSize / 2.0f;
@@ -693,6 +925,21 @@ public partial class NavGrid : Node
 			{
 				allowedSectors.Add(portal.FromSector);
 				allowedSectors.Add(portal.ToSector);
+
+				Vector2I sectorDelta = portal.ToSector - portal.FromSector;
+				if (sectorDelta.X != 0 && sectorDelta.Y != 0)
+				{
+					Vector2I horizontalBridge =
+						portal.FromSector + new Vector2I(sectorDelta.X, 0);
+					Vector2I verticalBridge =
+						portal.FromSector + new Vector2I(0, sectorDelta.Y);
+
+					if (GetSector(horizontalBridge) != null)
+						allowedSectors.Add(horizontalBridge);
+
+					if (GetSector(verticalBridge) != null)
+						allowedSectors.Add(verticalBridge);
+				}
 			}
 		}
 
@@ -1073,6 +1320,7 @@ public partial class NavGrid : Node
 		}
 
 		const float maxCellEpsilon = 0.001f;
+		const int obstacleBorderInCells = 1;
 		Vector2I minCell = WorldToCell(new Vector3(minWorldX, 0, minWorldZ));
 		Vector2I maxCell = WorldToCell(new Vector3(maxWorldX - maxCellEpsilon, 0, maxWorldZ - maxCellEpsilon));
 
@@ -1081,8 +1329,14 @@ public partial class NavGrid : Node
 			for (int y = minCell.Y; y <= maxCell.Y; y++)
 			{
 				Vector2I cellPos = new Vector2I(x, y);
-				if (CellOverlapsFootprint(cellPos, footprint))
-					SetWalkable(cellPos, false);
+				if (!CellOverlapsFootprint(cellPos, footprint))
+					continue;
+
+				for (int offsetX = -obstacleBorderInCells; offsetX <= obstacleBorderInCells; offsetX++)
+				{
+					for (int offsetY = -obstacleBorderInCells; offsetY <= obstacleBorderInCells; offsetY++)
+						SetWalkable(cellPos + new Vector2I(offsetX, offsetY), false);
+				}
 			}
 		}
 	}
@@ -1219,16 +1473,40 @@ public partial class NavGrid : Node
 
 	private bool TryGetTerrainPoint(Vector2 worldPos, out Vector3 terrainPoint)
 	{
-		float fallbackHeight = GetFallbackGroundHeight();
-		Vector3 from = new Vector3(worldPos.X, fallbackHeight + _terrainRaycastHeight, worldPos.Y);
-		Vector3 to = new Vector3(worldPos.X, fallbackHeight - _terrainRaycastHeight, worldPos.Y);
-
-		return TryRaycastTerrain(from, to, out terrainPoint);
+		return TryGetTerrainPoint(worldPos, out terrainPoint, out _);
 	}
 
-	private bool TryRaycastTerrain(Vector3 from, Vector3 to, out Vector3 terrainPoint)
+	private bool TryGetTerrainPoint(Vector2 worldPos, out Vector3 terrainPoint, out Vector3 terrainNormal)
+	{
+		float fallbackHeight = GetFallbackGroundHeight();
+
+		Vector3 from = new(
+			worldPos.X,
+			fallbackHeight + _terrainRaycastHeight,
+			worldPos.Y
+		);
+
+		Vector3 to = new(
+			worldPos.X,
+			fallbackHeight - _terrainRaycastHeight,
+			worldPos.Y
+		);
+
+		return TryRaycastTerrain(from, to, out terrainPoint, out terrainNormal);
+	}
+
+	private bool TryRaycastTerrain(
+		Vector3 from,
+		Vector3 to,
+		out Vector3 terrainPoint)
+	{
+		return TryRaycastTerrain(from, to, out terrainPoint, out _);
+	}
+
+	private bool TryRaycastTerrain(Vector3 from, Vector3 to, out Vector3 terrainPoint, out Vector3 terrainNormal)
 	{
 		terrainPoint = default;
+		terrainNormal = Vector3.Up;
 
 		World3D world = GetViewport()?.World3D;
 		if (world == null)
@@ -1244,6 +1522,8 @@ public partial class NavGrid : Node
 			return false;
 
 		terrainPoint = (Vector3)result["position"];
+		terrainNormal = ((Vector3)result["normal"]).Normalized();
+
 		return true;
 	}
 
@@ -1251,6 +1531,50 @@ public partial class NavGrid : Node
 	{
 		Node currentScene = GetTree()?.CurrentScene;
 		return currentScene?.GetNodeOrNull<Node3D>("%Ground")?.GlobalPosition.Y ?? 0.0f;
+	}
+
+	private bool TryGetCellRegion(Rect2I sectorRegion, out Rect2I cellRegion)
+	{
+		cellRegion = default;
+		if (sectorRegion.Size.X <= 0 || sectorRegion.Size.Y <= 0)
+			return false;
+
+		Vector2I sectorRegionEnd = sectorRegion.Position + sectorRegion.Size;
+		int minSectorX = Math.Max(0, sectorRegion.Position.X);
+		int minSectorY = Math.Max(0, sectorRegion.Position.Y);
+		int maxSectorX = Math.Min(_sectorWidth, sectorRegionEnd.X) - 1;
+		int maxSectorY = Math.Min(_sectorHeight, sectorRegionEnd.Y) - 1;
+
+		if (minSectorX > maxSectorX || minSectorY > maxSectorY)
+			return false;
+
+		NavSector minSector = _sectors[minSectorX, minSectorY];
+		NavSector maxSector = _sectors[maxSectorX, maxSectorY];
+		cellRegion = new Rect2I(
+			minSector.MinCell,
+			maxSector.MaxCell - minSector.MinCell + Vector2I.One
+		);
+		return true;
+	}
+
+	private void ResetWalkability(Rect2I cellRegion)
+	{
+		Vector2I cellRegionEnd = cellRegion.Position + cellRegion.Size;
+
+		for (int x = cellRegion.Position.X; x < cellRegionEnd.X; x++)
+		{
+			for (int y = cellRegion.Position.Y; y < cellRegionEnd.Y; y++)
+				_cells[x, y].Walkable = true;
+		}
+	}
+
+	private void DrawNavigationState()
+	{
+		if (!_drawNavGrid)
+			return;
+
+		_debugRenderer.DrawBlockedCells(this, _gridOrigin, CellSize, _cells);
+		_debugRenderer.DrawPortalCells(this, _gridOrigin, _width, _height, CellSize, _sectors);
 	}
 
 	private void ResetIntegrationCosts()
@@ -1285,5 +1609,10 @@ public partial class NavGrid : Node
 			return false;
 
 		return true;
+	}
+
+	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	private void RequestNavData()
+	{
 	}
 }

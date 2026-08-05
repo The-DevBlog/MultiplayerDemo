@@ -15,8 +15,11 @@ albedo_color = Color(0.3883316, 0.65232253, 0.50226086, 1)
 material = SubResource("StandardMaterial3D_7522t")
 size = Vector2(100, 100)
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_terrain"]
+size = Vector3(500, 500, 0.02)
+
 [sub_resource type="BoxMesh" id="BoxMesh_ptkwr"]
-size = Vector3(1, 1, 18.96)
+size = Vector3(14.62, 7.01, 19.715)
 
 [node name="Play" type="Node3D" unique_id=1550871505]
 script = ExtResource("1_ek1d2")
@@ -27,6 +30,14 @@ UnitScene = ExtResource("1_vlv1q")
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.015716553, 0.020378113, 0.012013912)
 mesh = SubResource("QuadMesh_tkwp6")
+
+[node name="TerrainBody" type="StaticBody3D" parent="Ground"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="TerrainCollision" type="CollisionShape3D" parent="Ground/TerrainBody"]
+position = Vector3(0, 0, 0.01)
+shape = SubResource("BoxShape3D_terrain")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1119935622]
 transform = Transform3D(1, 0, 0, 0, 0.45119774, 0.89242405, 0, -0.89242405, 0.45119774, 0, 152.7529, 113.959335)
@@ -62,7 +73,8 @@ _drawNavGrid = true
 GridColor = Color(1, 1, 1, 1)
 FlowColor = Color(1, 1, 1, 1)
 TargetColor = Color(0.9088366, 0.9396983, 0, 1)
+_terrainCollisionMask = 2
 
 [node name="Obstacle2" type="MeshInstance3D" parent="." unique_id=1594532605 groups=["nav_obstacles"]]
-transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -175.97218, 1.1073065, -244.90361)
+transform = Transform3D(0.9999605, 0, -0.008899331, 0, 1, 0, 0.008899331, 0, 0.9999605, -116.08543, 1.1073065, -113.93823)
 mesh = SubResource("BoxMesh_ptkwr")
