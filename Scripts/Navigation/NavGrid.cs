@@ -1455,6 +1455,15 @@ public partial class NavGrid : Node
 
 		foreach (Vector2I offset in _offsets)
 		{
+			if (offset.X != 0 && offset.Y != 0 &&
+				!AreCellsWalkable(
+					cellPos + new Vector2I(offset.X, 0),
+					cellPos + new Vector2I(0, offset.Y)
+				))
+			{
+				continue;
+			}
+
 			NavCell cell = GetCell(cellPos + offset);
 			if (cell != null && cell.Walkable)
 				neighbors.Add(cell);
