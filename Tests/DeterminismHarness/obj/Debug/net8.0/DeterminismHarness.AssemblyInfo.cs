@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DeterminismHarness")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b2ba1a37d9b087ea8ab217adea77f5fd229cccb5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b0058ec10726a6690c0be7d29a4e8d51683dcb0")]
 [assembly: System.Reflection.AssemblyProductAttribute("DeterminismHarness")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DeterminismHarness")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

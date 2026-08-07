@@ -1,11 +1,15 @@
 {
   "version": 2,
-  "dgSpecHash": "41dQax1Un44=",
+  "dgSpecHash": "2Qk44fYGHSo=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
+  "projectFilePath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Andrew\\.nuget\\packages\\godotsharp\\4.7.0\\godotsharp.4.7.0.nupkg.sha512",
-    "C:\\Users\\Andrew\\.nuget\\packages\\godotsharpeditor\\4.7.0\\godotsharpeditor.4.7.0.nupkg.sha512"
+    "C:\\Users\\andrew\\.nuget\\packages\\godotsharp\\4.7.0\\godotsharp.4.7.0.nupkg.sha512",
+    "C:\\Users\\andrew\\.nuget\\packages\\godotsharpeditor\\4.7.0\\godotsharpeditor.4.7.0.nupkg.sha512",
+    "C:\\Users\\andrew\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.20\\microsoft.netcore.app.ref.8.0.20.nupkg.sha512",
+    "C:\\Users\\andrew\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.20\\microsoft.windowsdesktop.app.ref.8.0.20.nupkg.sha512",
+    "C:\\Users\\andrew\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.20\\microsoft.aspnetcore.app.ref.8.0.20.nupkg.sha512",
+    "C:\\Users\\andrew\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.20\\microsoft.netcore.app.host.win-x64.8.0.20.nupkg.sha512"
   ],
   "logs": []
 }

@@ -1,34 +1,26 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj": {}
+    "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj": {
+    "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj",
+        "projectUniqueName": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj",
         "projectName": "MultiplayerDemo",
-        "projectPath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj",
-        "packagesPath": "C:\\Users\\Andrew\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\.godot\\mono\\temp\\obj\\",
+        "projectPath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj",
+        "packagesPath": "C:\\Users\\andrew\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\.godot\\mono\\temp\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\Andrew\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\andrew\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
-          "https://api.nuget.org/v3/index.json": {},
-          "https://www.nuget.org/api/v2": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
@@ -80,47 +72,53 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.316/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj": {
+    "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
+        "projectUniqueName": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
         "projectName": "DeterminismHarness",
-        "projectPath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
-        "packagesPath": "C:\\Users\\Andrew\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\obj\\",
+        "projectPath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
+        "packagesPath": "C:\\Users\\andrew\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\Andrew\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\andrew\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
-          "https://api.nuget.org/v3/index.json": {},
-          "https://www.nuget.org/api/v2": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj": {
-                "projectPath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj"
+              "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj": {
+                "projectPath": "C:\\Users\\andrew\\Desktop\\Code\\Godot\\MultiplayerDemo\\MultiplayerDemo.csproj"
               }
             }
           }
@@ -151,12 +149,30 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.win-x64",
+              "version": "[8.0.20, 8.0.20]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.20, 8.0.20]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.316/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
