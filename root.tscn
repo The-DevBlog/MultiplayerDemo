@@ -26,6 +26,7 @@ polygons = [PackedInt32Array(0, 1, 2, 3)]
 [node name="Unit" type="Node3D" parent="." unique_id=1287906578]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.043325, 0, 5.6781483)
 script = ExtResource("1_pq8q7")
+InitialSimPosition = Vector2i(-11043, 5678)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Unit" unique_id=455841919]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -40,6 +41,7 @@ max_speed = 8.0
 [node name="Unit2" type="Node3D" parent="." unique_id=1716179703]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4739695, 0, 5.6781483)
 script = ExtResource("1_pq8q7")
+InitialSimPosition = Vector2i(3474, 5678)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Unit2" unique_id=239043158]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)

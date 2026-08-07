@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using static DeterministicMath;
 
 public class NavFlowField
 {
@@ -60,6 +61,46 @@ public class NavFlowField
     public void AddCalculatedSector(Vector2I sectorPos)
     {
         _calculatedSectors.Add(sectorPos);
+    }
+
+    public int GetDeterministicStateHash()
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = CombineHash(hash, TargetCell.X);
+            hash = CombineHash(hash, TargetCell.Y);
+            hash = CombineHash(hash, Directions.GetLength(0));
+            hash = CombineHash(hash, Directions.GetLength(1));
+
+            for (int x = 0; x < Directions.GetLength(0); x++)
+            {
+                for (int y = 0; y < Directions.GetLength(1); y++)
+                {
+                    hash = CombineHash(hash, Directions[x, y].X);
+                    hash = CombineHash(hash, Directions[x, y].Y);
+                    hash = CombineHash(hash, IntegrationCosts[x, y]);
+                }
+            }
+
+            var calculatedSectors = new List<Vector2I>(_calculatedSectors);
+            calculatedSectors.Sort((left, right) =>
+            {
+                int rowComparison = left.Y.CompareTo(right.Y);
+                return rowComparison != 0
+                    ? rowComparison
+                    : left.X.CompareTo(right.X);
+            });
+
+            hash = CombineHash(hash, calculatedSectors.Count);
+            foreach (Vector2I sector in calculatedSectors)
+            {
+                hash = CombineHash(hash, sector.X);
+                hash = CombineHash(hash, sector.Y);
+            }
+
+            return hash;
+        }
     }
 
     public bool TryGetNearestDirectedCell(

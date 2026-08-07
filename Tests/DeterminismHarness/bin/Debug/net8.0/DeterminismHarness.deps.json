@@ -1,0 +1,76 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "DeterminismHarness/1.0.0": {
+        "dependencies": {
+          "MultiplayerDemo": "1.0.0"
+        },
+        "runtime": {
+          "DeterminismHarness.dll": {}
+        }
+      },
+      "GodotSharp/4.7.0": {
+        "runtime": {
+          "lib/net8.0/GodotSharp.dll": {
+            "assemblyVersion": "4.7.0.0",
+            "fileVersion": "4.7.0.0"
+          }
+        }
+      },
+      "GodotSharpEditor/4.7.0": {
+        "dependencies": {
+          "GodotSharp": "4.7.0"
+        },
+        "runtime": {
+          "lib/net8.0/GodotSharpEditor.dll": {
+            "assemblyVersion": "4.7.0.0",
+            "fileVersion": "4.7.0.0"
+          }
+        }
+      },
+      "MultiplayerDemo/1.0.0": {
+        "dependencies": {
+          "GodotSharp": "4.7.0",
+          "GodotSharpEditor": "4.7.0"
+        },
+        "runtime": {
+          "MultiplayerDemo.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DeterminismHarness/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "GodotSharp/4.7.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cSlT7ziWnORTOxRz0LpmQNM+ZHBt5CWgegreJXiTinj37XucRZSQ65GIloblaozOju21L/FCBs4Y35WteHfQrw==",
+      "path": "godotsharp/4.7.0",
+      "hashPath": "godotsharp.4.7.0.nupkg.sha512"
+    },
+    "GodotSharpEditor/4.7.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-vXYw6PXzKVCTQCgPeGxLnw5Qlub8SY43yQYEPZNYlDN1/OOiLnaaKxJvLf2Wk5D+8/+K/pxRQXGPqj65bnWohQ==",
+      "path": "godotsharpeditor/4.7.0",
+      "hashPath": "godotsharpeditor.4.7.0.nupkg.sha512"
+    },
+    "MultiplayerDemo/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -25,6 +25,8 @@ size = Vector3(2.84125, 7.01, 47.679276)
 script = ExtResource("1_ek1d2")
 MapSize = Vector2i(500, 500)
 UnitScene = ExtResource("1_vlv1q")
+UnitCount = 100
+ShowAvoidanceVisualization = true
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=971755762]
 unique_name_in_owner = true

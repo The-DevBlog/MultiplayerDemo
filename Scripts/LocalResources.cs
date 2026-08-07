@@ -26,7 +26,7 @@ public partial class LocalResources : Node3D
 	}
 
 	private MeshInstance3D _ground;
-	private float _space = 7.0f;
+	private int _space = 7;
 	private bool _showAvoidanceVisualization;
 	private const string DefaultUnitScenePath = "res://Scenes/unit.tscn";
 
@@ -57,9 +57,13 @@ public partial class LocalResources : Node3D
 			return;
 		}
 
-		int unitsPerSide = Mathf.CeilToInt(Mathf.Sqrt(UnitCount));
-		float formationSize = (unitsPerSide - 1) * _space;
-		Vector3 formationOrigin = new(-formationSize / 2.0f, 0.0f, -formationSize / 2.0f);
+		int unitsPerSide = DeterministicMath.IntegerSqrt(UnitCount);
+		if ((long)unitsPerSide * unitsPerSide < UnitCount)
+			unitsPerSide++;
+
+		int spacingSim = _space * DeterministicMath.SimScale;
+		int formationSizeSim = (unitsPerSide - 1) * spacingSim;
+		Vector2I formationOriginSim = new(-formationSizeSim / 2, -formationSizeSim / 2);
 
 		for (int unitIndex = 0; unitIndex < UnitCount; unitIndex++)
 		{
@@ -68,7 +72,9 @@ public partial class LocalResources : Node3D
 			int column = unitIndex % unitsPerSide;
 
 			unit.UnitID = unitIndex;
-			unit.Position = formationOrigin + new Vector3(column * _space, 0.0f, row * _space);
+			unit.SetInitialSimPosition(
+				formationOriginSim + new Vector2I(column * spacingSim, row * spacingSim)
+			);
 			unit.SetAvoidanceVisualization(_showAvoidanceVisualization);
 
 			AddChild(unit);

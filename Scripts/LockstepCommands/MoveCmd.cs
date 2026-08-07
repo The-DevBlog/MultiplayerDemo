@@ -2,26 +2,37 @@ using System.Collections.Generic;
 using Godot;
 using Godot.Collections;
 
-public class MoveCommand
+public class MoveCmd
 {
 	public int PeerID { get; set; }
 	public Array<int> UnitIDs { get; set; }
 	public Vector2I Position { get; set; }
 	public int Tick { get; set; }
 
-	public MoveCommand(int peerID, Array<int> unitIDs, Vector2I position, int tick)
+	public MoveCmd(int peerID, Array<int> unitIDs, Vector2I position, int tick)
 	{
 		PeerID = peerID;
-		UnitIDs = unitIDs;
+
+		var sortedUnitIDs = new List<int>(unitIDs.Count);
+		foreach (int unitID in unitIDs)
+			sortedUnitIDs.Add(unitID);
+		sortedUnitIDs.Sort();
+
+		UnitIDs = new Array<int>();
+		foreach (int unitID in sortedUnitIDs)
+			UnitIDs.Add(unitID);
+
 		Position = position;
 		Tick = tick;
 	}
 
 	public static void ProcessCommand(
 		SortedDictionary<int, Unit> units,
-		List<MoveCommand> moveCmds,
+		List<MoveCmd> moveCmds,
 		NavGrid navGrid)
 	{
+		moveCmds.Sort(CompareDeterministically);
+
 		foreach (var cmd in moveCmds)
 		{
 			var tmpUnits = new List<Unit>();
@@ -39,7 +50,7 @@ public class MoveCommand
 			var startCells = new List<Vector2I>();
 
 			foreach (Unit unit in tmpUnits)
-				startCells.Add(navGrid.WorldToCell(unit.GetSimWorldPosition()));
+				startCells.Add(navGrid.SimToCell(unit.SimPosition));
 
 			List<Vector2I> destCells = navGrid.FindDestinationCells(cmd.Position, tmpUnits.Count);
 
@@ -69,7 +80,35 @@ public class MoveCommand
 		}
 	}
 
-	private static int GetMoveGroupID(MoveCommand command, List<Unit> units)
+	private static int CompareDeterministically(MoveCmd left, MoveCmd right)
+	{
+		int comparison = left.PeerID.CompareTo(right.PeerID);
+		if (comparison != 0)
+			return comparison;
+
+		comparison = left.Position.Y.CompareTo(right.Position.Y);
+		if (comparison != 0)
+			return comparison;
+
+		comparison = left.Position.X.CompareTo(right.Position.X);
+		if (comparison != 0)
+			return comparison;
+
+		comparison = left.UnitIDs.Count.CompareTo(right.UnitIDs.Count);
+		if (comparison != 0)
+			return comparison;
+
+		for (int index = 0; index < left.UnitIDs.Count; index++)
+		{
+			comparison = left.UnitIDs[index].CompareTo(right.UnitIDs[index]);
+			if (comparison != 0)
+				return comparison;
+		}
+
+		return 0;
+	}
+
+	private static int GetMoveGroupID(MoveCmd command, List<Unit> units)
 	{
 		unchecked
 		{

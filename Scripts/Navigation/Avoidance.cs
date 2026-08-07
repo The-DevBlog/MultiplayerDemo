@@ -1,24 +1,26 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using static DeterministicMath;
+using FixedVector = DeterministicMath.FixedVector;
 
 public readonly struct AvoidanceAgentSnapshot
 {
     public int UnitID { get; }
     public int MoveGroupID { get; }
-    public Vector2 Position { get; }
-    public Vector2 Velocity { get; }
-    public float Radius { get; }
-    public float Priority { get; }
+    public Vector2I Position { get; }
+    public Vector2I Velocity { get; }
+    public int Radius { get; }
+    public int Priority { get; }
     public bool IsMoving { get; }
 
     public AvoidanceAgentSnapshot(
         int unitID,
         int moveGroupID,
-        Vector2 position,
-        Vector2 velocity,
-        float radius,
-        float priority,
+        Vector2I position,
+        Vector2I velocity,
+        int radius,
+        int priority,
         bool isMoving)
     {
         UnitID = unitID;
@@ -33,31 +35,33 @@ public readonly struct AvoidanceAgentSnapshot
 
 public static class Avoidance
 {
-    private const float Epsilon = 0.00001f;
-    private const float LowSpeedRatio = 0.25f;
-    private const float PassingBias = 0.5f;
-    private const float SameGroupRadiusScale = 0.8f;
+    private const long Epsilon = FixedScale / 100;
+    private const long LowSpeedRatio = FixedScale / 4;
+    private const long PassingBias = FixedScale / 2;
+    private const long SameGroupRadiusScale = FixedScale * 4 / 5;
 
     private readonly struct AvoidanceLine
     {
-        public Vector2 Point { get; }
-        public Vector2 Direction { get; }
+        public FixedVector Point { get; }
+        public FixedVector Direction { get; }
 
-        public AvoidanceLine(Vector2 point, Vector2 direction)
+        public AvoidanceLine(FixedVector point, FixedVector direction)
         {
             Point = point;
             Direction = direction;
         }
     }
 
-    public static Vector2 Solve(
+    public static Vector2I Solve(
         AvoidanceAgentSnapshot agent,
         IReadOnlyList<AvoidanceAgentSnapshot> neighbors,
-        Vector2 preferredVelocity,
-        float maxSpeed,
-        float timeHorizon,
-        float groupTimeHorizon)
+        Vector2I preferredVelocity,
+        int maxSpeed,
+        int timeHorizon,
+        int groupTimeHorizon)
     {
+        FixedVector agentPosition = FixedVector.FromVector2I(agent.Position);
+        FixedVector agentVelocity = FixedVector.FromVector2I(agent.Velocity);
         var lines = new List<AvoidanceLine>(neighbors.Count);
 
         foreach (AvoidanceAgentSnapshot neighbor in neighbors)
@@ -65,167 +69,236 @@ public static class Avoidance
             if (agent.IsMoving && !neighbor.IsMoving)
                 continue;
 
-            Vector2 relativePosition = neighbor.Position - agent.Position;
-            Vector2 relativeVelocity = agent.Velocity - neighbor.Velocity;
-            float distanceSquared = relativePosition.LengthSquared();
+            FixedVector relativePosition =
+                FixedVector.FromVector2I(neighbor.Position) - agentPosition;
+            FixedVector relativeVelocity =
+                agentVelocity - FixedVector.FromVector2I(neighbor.Velocity);
+            long distanceSquared = LengthSquared(relativePosition);
             bool isSameMoveGroup =
                 agent.MoveGroupID != -1 &&
                 agent.MoveGroupID == neighbor.MoveGroupID;
-            float radiusScale = isSameMoveGroup ? SameGroupRadiusScale : 1.0f;
-            float combinedRadius = (agent.Radius + neighbor.Radius) * radiusScale;
-            float combinedRadiusSquared = combinedRadius * combinedRadius;
-            float activeTimeHorizon = isSameMoveGroup
+            long radiusScale = isSameMoveGroup ? SameGroupRadiusScale : FixedScale;
+            long combinedRadius = Multiply(
+                ToFixed(agent.Radius + neighbor.Radius),
+                radiusScale
+            );
+            long combinedRadiusSquared = Multiply(combinedRadius, combinedRadius);
+            int activeTimeHorizon = isSameMoveGroup
                 ? Math.Min(timeHorizon, groupTimeHorizon)
                 : timeHorizon;
+            long inverseTimeHorizon = Divide(
+                FixedScale,
+                ToFixed(Math.Max(activeTimeHorizon, 1))
+            );
 
-            Vector2 lineDirection;
-            Vector2 correction;
+            FixedVector lineDirection;
+            FixedVector correction;
 
             if (distanceSquared > combinedRadiusSquared)
             {
-                float inverseTimeHorizon = 1.0f / Math.Max(activeTimeHorizon, Epsilon);
-                Vector2 offsetVelocity = relativeVelocity - inverseTimeHorizon * relativePosition;
-                float offsetLengthSquared = offsetVelocity.LengthSquared();
-                float projection = offsetVelocity.Dot(relativePosition);
+                FixedVector offsetVelocity = relativeVelocity -
+                    Multiply(relativePosition, inverseTimeHorizon);
+                long offsetLengthSquared = LengthSquared(offsetVelocity);
+                long projection = Dot(offsetVelocity, relativePosition);
 
-                if (projection < 0.0f &&
-                    projection * projection > combinedRadiusSquared * offsetLengthSquared)
+                if (projection < 0 &&
+                    (Int128)projection * projection >
+                    (Int128)combinedRadiusSquared * offsetLengthSquared)
                 {
-                    float offsetLength = Mathf.Sqrt(offsetLengthSquared);
-                    Vector2 unitOffset = NormalizeOrFallback(offsetVelocity, agent.UnitID, neighbor.UnitID);
-                    lineDirection = new Vector2(unitOffset.Y, -unitOffset.X);
-                    correction = (combinedRadius * inverseTimeHorizon - offsetLength) * unitOffset;
+                    long offsetLength = SqrtFixed(offsetLengthSquared);
+                    FixedVector unitOffset = NormalizeOrFallback(
+                        offsetVelocity,
+                        agent.UnitID,
+                        neighbor.UnitID
+                    );
+                    lineDirection = new FixedVector(unitOffset.Y, -unitOffset.X);
+                    correction = Multiply(
+                        unitOffset,
+                        Multiply(combinedRadius, inverseTimeHorizon) - offsetLength
+                    );
                 }
                 else
                 {
-                    float leg = Mathf.Sqrt(Math.Max(0.0f, distanceSquared - combinedRadiusSquared));
+                    long leg = SqrtFixed(Math.Max(0, distanceSquared - combinedRadiusSquared));
 
-                    if (Determinant(relativePosition, offsetVelocity) > 0.0f)
+                    if (Determinant(relativePosition, offsetVelocity) > 0)
                     {
-                        lineDirection = new Vector2(
-                            relativePosition.X * leg - relativePosition.Y * combinedRadius,
-                            relativePosition.X * combinedRadius + relativePosition.Y * leg
-                        ) / distanceSquared;
+                        lineDirection = new FixedVector(
+                            Divide(
+                                Multiply(relativePosition.X, leg) -
+                                Multiply(relativePosition.Y, combinedRadius),
+                                distanceSquared
+                            ),
+                            Divide(
+                                Multiply(relativePosition.X, combinedRadius) +
+                                Multiply(relativePosition.Y, leg),
+                                distanceSquared
+                            )
+                        );
                     }
                     else
                     {
-                        lineDirection = -new Vector2(
-                            relativePosition.X * leg + relativePosition.Y * combinedRadius,
-                            -relativePosition.X * combinedRadius + relativePosition.Y * leg
-                        ) / distanceSquared;
+                        lineDirection = -new FixedVector(
+                            Divide(
+                                Multiply(relativePosition.X, leg) +
+                                Multiply(relativePosition.Y, combinedRadius),
+                                distanceSquared
+                            ),
+                            Divide(
+                                -Multiply(relativePosition.X, combinedRadius) +
+                                Multiply(relativePosition.Y, leg),
+                                distanceSquared
+                            )
+                        );
                     }
 
-                    float velocityProjection = relativeVelocity.Dot(lineDirection);
-                    correction = velocityProjection * lineDirection - relativeVelocity;
+                    long velocityProjection = Dot(relativeVelocity, lineDirection);
+                    correction = Multiply(lineDirection, velocityProjection) - relativeVelocity;
                 }
             }
             else
             {
-                Vector2 offsetVelocity = relativeVelocity - relativePosition;
-                float offsetLength = offsetVelocity.Length();
-                Vector2 unitOffset = NormalizeOrFallback(offsetVelocity, agent.UnitID, neighbor.UnitID);
-                lineDirection = new Vector2(unitOffset.Y, -unitOffset.X);
-                correction = (combinedRadius - offsetLength) * unitOffset;
+                FixedVector offsetVelocity = relativeVelocity - relativePosition;
+                long offsetLength = SqrtFixed(LengthSquared(offsetVelocity));
+                FixedVector unitOffset = NormalizeOrFallback(
+                    offsetVelocity,
+                    agent.UnitID,
+                    neighbor.UnitID
+                );
+                lineDirection = new FixedVector(unitOffset.Y, -unitOffset.X);
+                correction = Multiply(unitOffset, combinedRadius - offsetLength);
             }
 
-            float responsibility = GetResponsibility(agent, neighbor);
+            long responsibility = GetResponsibility(agent, neighbor);
             lines.Add(new AvoidanceLine(
-                agent.Velocity + responsibility * correction,
+                agentVelocity + Multiply(correction, responsibility),
                 lineDirection
             ));
         }
 
-        int failedLine = LinearProgram2(lines, maxSpeed, preferredVelocity, false, out Vector2 result);
+        long fixedMaxSpeed = ToFixed(Math.Max(maxSpeed, 0));
+        FixedVector fixedPreferredVelocity = FixedVector.FromVector2I(preferredVelocity);
+        int failedLine = LinearProgram2(
+            lines,
+            fixedMaxSpeed,
+            fixedPreferredVelocity,
+            false,
+            out FixedVector result
+        );
         if (failedLine < lines.Count)
-            LinearProgram3(lines, failedLine, maxSpeed, ref result);
+            LinearProgram3(lines, failedLine, fixedMaxSpeed, ref result);
 
-        float preferredSpeedSquared = preferredVelocity.LengthSquared();
-        float lowSpeedThresholdSquared =
-            preferredSpeedSquared * LowSpeedRatio * LowSpeedRatio;
+        long preferredSpeedSquared = LengthSquared(fixedPreferredVelocity);
+        long lowSpeedThresholdSquared = Multiply(
+            preferredSpeedSquared,
+            Multiply(LowSpeedRatio, LowSpeedRatio)
+        );
 
-        if (preferredSpeedSquared > Epsilon * Epsilon &&
-            result.LengthSquared() < lowSpeedThresholdSquared)
+        if (preferredSpeedSquared > Multiply(Epsilon, Epsilon) &&
+            LengthSquared(result) < lowSpeedThresholdSquared)
         {
-            Vector2 passingOffset = new Vector2(-preferredVelocity.Y, preferredVelocity.X);
-            Vector2 passingPreferredVelocity =
-                (preferredVelocity + PassingBias * passingOffset).Normalized() *
-                Math.Min(maxSpeed, Mathf.Sqrt(preferredSpeedSquared));
+            FixedVector passingOffset = new FixedVector(
+                -fixedPreferredVelocity.Y,
+                fixedPreferredVelocity.X
+            );
+            FixedVector passingDirection = Normalize(
+                fixedPreferredVelocity + Multiply(passingOffset, PassingBias)
+            );
+            FixedVector passingPreferredVelocity = Multiply(
+                passingDirection,
+                Math.Min(fixedMaxSpeed, SqrtFixed(preferredSpeedSquared))
+            );
 
             int passingFailedLine = LinearProgram2(
                 lines,
-                maxSpeed,
+                fixedMaxSpeed,
                 passingPreferredVelocity,
                 false,
-                out Vector2 passingResult
+                out FixedVector passingResult
             );
             if (passingFailedLine < lines.Count)
-                LinearProgram3(lines, passingFailedLine, maxSpeed, ref passingResult);
+                LinearProgram3(lines, passingFailedLine, fixedMaxSpeed, ref passingResult);
 
-            bool improvesSpeed = passingResult.LengthSquared() > result.LengthSquared();
+            bool improvesSpeed = LengthSquared(passingResult) > LengthSquared(result);
             bool preservesProgress =
-                passingResult.Dot(preferredVelocity) + Epsilon >=
-                result.Dot(preferredVelocity);
+                Dot(passingResult, fixedPreferredVelocity) >=
+                Dot(result, fixedPreferredVelocity);
 
             if (improvesSpeed && preservesProgress)
                 result = passingResult;
         }
 
-        return result;
+        return ClampMagnitude(result.ToVector2I(), maxSpeed);
     }
 
-    private static float GetResponsibility(AvoidanceAgentSnapshot agent, AvoidanceAgentSnapshot neighbor)
+    private static long GetResponsibility(
+        AvoidanceAgentSnapshot agent,
+        AvoidanceAgentSnapshot neighbor)
     {
         if (!agent.IsMoving && neighbor.IsMoving)
-            return 1.0f;
+            return FixedScale;
 
-        float safePriority = Math.Max(agent.Priority, Epsilon);
-        float safeNeighborPriority = Math.Max(neighbor.Priority, Epsilon);
-        return safeNeighborPriority / (safePriority + safeNeighborPriority);
+        int safePriority = Math.Max(agent.Priority, 1);
+        int safeNeighborPriority = Math.Max(neighbor.Priority, 1);
+        return Divide(
+            ToFixed(safeNeighborPriority),
+            ToFixed(safePriority + safeNeighborPriority)
+        );
     }
 
-    private static Vector2 NormalizeOrFallback(Vector2 value, int unitID, int neighborID)
+    private static FixedVector NormalizeOrFallback(
+        FixedVector value,
+        int unitID,
+        int neighborID)
     {
-        float lengthSquared = value.LengthSquared();
-        if (lengthSquared > Epsilon * Epsilon)
-            return value / Mathf.Sqrt(lengthSquared);
+        if (LengthSquared(value) > Multiply(Epsilon, Epsilon))
+            return Normalize(value);
 
-        return unitID < neighborID ? Vector2.Left : Vector2.Right;
+        return unitID < neighborID
+            ? new FixedVector(-FixedScale, 0)
+            : new FixedVector(FixedScale, 0);
     }
 
     private static bool LinearProgram1(
         IReadOnlyList<AvoidanceLine> lines,
         int lineIndex,
-        float radius,
-        Vector2 optimalVelocity,
+        long radius,
+        FixedVector optimalVelocity,
         bool directionOptimal,
-        ref Vector2 result)
+        ref FixedVector result)
     {
         AvoidanceLine line = lines[lineIndex];
-        float dotProduct = line.Point.Dot(line.Direction);
-        float discriminant = dotProduct * dotProduct + radius * radius - line.Point.LengthSquared();
+        long dotProduct = Dot(line.Point, line.Direction);
+        long discriminant =
+            Multiply(dotProduct, dotProduct) +
+            Multiply(radius, radius) -
+            LengthSquared(line.Point);
 
-        if (discriminant < 0.0f)
+        if (discriminant < 0)
             return false;
 
-        float squareRoot = Mathf.Sqrt(discriminant);
-        float left = -dotProduct - squareRoot;
-        float right = -dotProduct + squareRoot;
+        long squareRoot = SqrtFixed(discriminant);
+        long left = -dotProduct - squareRoot;
+        long right = -dotProduct + squareRoot;
 
         for (int index = 0; index < lineIndex; index++)
         {
-            float denominator = Determinant(line.Direction, lines[index].Direction);
-            float numerator = Determinant(lines[index].Direction, line.Point - lines[index].Point);
+            long denominator = Determinant(line.Direction, lines[index].Direction);
+            long numerator = Determinant(
+                lines[index].Direction,
+                line.Point - lines[index].Point
+            );
 
-            if (Mathf.Abs(denominator) <= Epsilon)
+            if (Math.Abs(denominator) <= Epsilon)
             {
-                if (numerator < 0.0f)
+                if (numerator < 0)
                     return false;
 
                 continue;
             }
 
-            float intersection = numerator / denominator;
-            if (denominator >= 0.0f)
+            long intersection = Divide(numerator, denominator);
+            if (denominator >= 0)
                 right = Math.Min(right, intersection);
             else
                 left = Math.Max(left, intersection);
@@ -236,14 +309,17 @@ public static class Avoidance
 
         if (directionOptimal)
         {
-            result = optimalVelocity.Dot(line.Direction) > 0.0f
-                ? line.Point + right * line.Direction
-                : line.Point + left * line.Direction;
+            result = Dot(optimalVelocity, line.Direction) > 0
+                ? line.Point + Multiply(line.Direction, right)
+                : line.Point + Multiply(line.Direction, left);
         }
         else
         {
-            float projection = line.Direction.Dot(optimalVelocity - line.Point);
-            result = line.Point + Mathf.Clamp(projection, left, right) * line.Direction;
+            long projection = Dot(line.Direction, optimalVelocity - line.Point);
+            result = line.Point + Multiply(
+                line.Direction,
+                Math.Clamp(projection, left, right)
+            );
         }
 
         return true;
@@ -251,18 +327,18 @@ public static class Avoidance
 
     private static int LinearProgram2(
         IReadOnlyList<AvoidanceLine> lines,
-        float radius,
-        Vector2 optimalVelocity,
+        long radius,
+        FixedVector optimalVelocity,
         bool directionOptimal,
-        out Vector2 result)
+        out FixedVector result)
     {
         if (directionOptimal)
         {
-            result = optimalVelocity * radius;
+            result = Multiply(optimalVelocity, radius);
         }
-        else if (optimalVelocity.LengthSquared() > radius * radius)
+        else if (LengthSquared(optimalVelocity) > Multiply(radius, radius))
         {
-            result = optimalVelocity.Normalized() * radius;
+            result = Multiply(Normalize(optimalVelocity), radius);
         }
         else
         {
@@ -271,11 +347,17 @@ public static class Avoidance
 
         for (int index = 0; index < lines.Count; index++)
         {
-            if (Determinant(lines[index].Direction, lines[index].Point - result) <= 0.0f)
+            if (Determinant(lines[index].Direction, lines[index].Point - result) <= 0)
                 continue;
 
-            Vector2 previousResult = result;
-            if (!LinearProgram1(lines, index, radius, optimalVelocity, directionOptimal, ref result))
+            FixedVector previousResult = result;
+            if (!LinearProgram1(
+                lines,
+                index,
+                radius,
+                optimalVelocity,
+                directionOptimal,
+                ref result))
             {
                 result = previousResult;
                 return index;
@@ -288,14 +370,14 @@ public static class Avoidance
     private static void LinearProgram3(
         IReadOnlyList<AvoidanceLine> lines,
         int beginLine,
-        float radius,
-        ref Vector2 result)
+        long radius,
+        ref FixedVector result)
     {
-        float distance = 0.0f;
+        long distance = 0;
 
         for (int lineIndex = beginLine; lineIndex < lines.Count; lineIndex++)
         {
-            float violation = Determinant(
+            long violation = Determinant(
                 lines[lineIndex].Direction,
                 lines[lineIndex].Point - result
             );
@@ -305,40 +387,61 @@ public static class Avoidance
             var projectedLines = new List<AvoidanceLine>(lineIndex);
             for (int previousIndex = 0; previousIndex < lineIndex; previousIndex++)
             {
-                float determinant = Determinant(
+                long determinant = Determinant(
                     lines[lineIndex].Direction,
                     lines[previousIndex].Direction
                 );
-                Vector2 point;
+                FixedVector point;
 
-                if (Mathf.Abs(determinant) <= Epsilon)
+                if (Math.Abs(determinant) <= Epsilon)
                 {
-                    if (lines[lineIndex].Direction.Dot(lines[previousIndex].Direction) > 0.0f)
+                    if (Dot(
+                        lines[lineIndex].Direction,
+                        lines[previousIndex].Direction) > 0)
+                    {
                         continue;
+                    }
 
-                    point = (lines[lineIndex].Point + lines[previousIndex].Point) * 0.5f;
+                    point = new FixedVector(
+                        (lines[lineIndex].Point.X + lines[previousIndex].Point.X) / 2,
+                        (lines[lineIndex].Point.Y + lines[previousIndex].Point.Y) / 2
+                    );
                 }
                 else
                 {
-                    point = lines[lineIndex].Point +
-                        Determinant(
-                            lines[previousIndex].Direction,
-                            lines[lineIndex].Point - lines[previousIndex].Point
-                        ) / determinant * lines[lineIndex].Direction;
+                    point = lines[lineIndex].Point + Multiply(
+                        lines[lineIndex].Direction,
+                        Divide(
+                            Determinant(
+                                lines[previousIndex].Direction,
+                                lines[lineIndex].Point - lines[previousIndex].Point
+                            ),
+                            determinant
+                        )
+                    );
                 }
 
-                Vector2 direction = (lines[previousIndex].Direction - lines[lineIndex].Direction).Normalized();
+                FixedVector direction = Normalize(
+                    lines[previousIndex].Direction - lines[lineIndex].Direction
+                );
                 projectedLines.Add(new AvoidanceLine(point, direction));
             }
 
-            Vector2 previousResult = result;
-            Vector2 optimalDirection = new Vector2(
+            FixedVector previousResult = result;
+            FixedVector optimalDirection = new FixedVector(
                 -lines[lineIndex].Direction.Y,
                 lines[lineIndex].Direction.X
             );
 
-            if (LinearProgram2(projectedLines, radius, optimalDirection, true, out result) < projectedLines.Count)
+            if (LinearProgram2(
+                projectedLines,
+                radius,
+                optimalDirection,
+                true,
+                out result) < projectedLines.Count)
+            {
                 result = previousResult;
+            }
 
             distance = Determinant(
                 lines[lineIndex].Direction,
@@ -347,8 +450,4 @@ public static class Avoidance
         }
     }
 
-    private static float Determinant(Vector2 first, Vector2 second)
-    {
-        return first.X * second.Y - first.Y * second.X;
-    }
 }

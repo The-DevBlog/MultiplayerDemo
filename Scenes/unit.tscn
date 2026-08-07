@@ -25,9 +25,9 @@ size = Vector2(5, 5)
 [node name="Unit" type="Node3D" unique_id=1363236879]
 script = ExtResource("1_yjw0f")
 UnitID = 1
-AgentRadius = 2.75
-AvoidanceRadius = 5.8
-GroupDirectionInfluence = 1.0
+AgentRadius = 275
+AvoidanceRadius = 580
+GroupDirectionInfluencePercent = 100
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1218632799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -42,4 +42,4 @@ cast_shadow = 0
 mesh = SubResource("QuadMesh_avoidance")
 
 [node name="MediumTank" parent="." unique_id=533056162 instance=ExtResource("3_8omp6")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.040448666, 0)
+transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, 0, -0.040448666, 0)

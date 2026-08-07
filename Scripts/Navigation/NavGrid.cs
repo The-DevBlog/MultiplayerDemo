@@ -5,6 +5,7 @@ using Godot;
 public partial class NavGrid : Node
 {
 	[Signal] public delegate void NavigationReadyEventHandler();
+	private const double NavigationRequestRetryInterval = 1.0;
 
 	[ExportGroup("Terrain")]
 	[Export(PropertyHint.Range, "0,90,1")]
@@ -13,6 +14,8 @@ public partial class NavGrid : Node
 	private ushort[] _slopeMap;
 	private byte[] _navigationPacket;
 	private readonly HashSet<int> _pendingNavPeers = new();
+	private bool _waitingForNavigationData;
+	private double _navigationRequestRetryTimer;
 
 
 	[ExportGroup("Debug")]
@@ -93,6 +96,13 @@ public partial class NavGrid : Node
 
 	public override void _Process(double delta)
 	{
+		if (_waitingForNavigationData && !IsNavReady)
+		{
+			_navigationRequestRetryTimer -= delta;
+			if (_navigationRequestRetryTimer <= 0.0)
+				RequestNavigationData();
+		}
+
 		if (_drawNavGrid)
 		{
 			_debugRenderer.SetSectorSize(_sectorSize);
@@ -348,6 +358,39 @@ public partial class NavGrid : Node
 		return new Vector2I(x, z);
 	}
 
+	public Vector2I SimToCell(Vector2I simPosition)
+	{
+		int cellSizeSim = CellSize * DeterministicMath.SimScale;
+		return new Vector2I(
+			DeterministicMath.FloorDivide(
+				(long)simPosition.X - (long)_gridOrigin.X * DeterministicMath.SimScale,
+				cellSizeSim
+			),
+			DeterministicMath.FloorDivide(
+				(long)simPosition.Y - (long)_gridOrigin.Y * DeterministicMath.SimScale,
+				cellSizeSim
+			)
+		);
+	}
+
+	public Vector2I CellToSim(Vector2I cellPos)
+	{
+		int cellSizeSim = CellSize * DeterministicMath.SimScale;
+		long x =
+			(long)_gridOrigin.X * DeterministicMath.SimScale +
+			(long)cellPos.X * cellSizeSim +
+			cellSizeSim / 2;
+		long y =
+			(long)_gridOrigin.Y * DeterministicMath.SimScale +
+			(long)cellPos.Y * cellSizeSim +
+			cellSizeSim / 2;
+
+		return new Vector2I(
+			(int)Math.Clamp(x, int.MinValue, int.MaxValue),
+			(int)Math.Clamp(y, int.MinValue, int.MaxValue)
+		);
+	}
+
 	public Vector3 CellToWorld(Vector2I cellPos)
 	{
 		float x = _gridOrigin.X + cellPos.X * CellSize + CellSize / 2.0f;
@@ -412,6 +455,38 @@ public partial class NavGrid : Node
 			sector.Position.Y < regionEnd.Y;
 	}
 
+	public int GetDeterministicStateHash()
+	{
+		unchecked
+		{
+			int hash = 17;
+			hash = hash * 31 + _width;
+			hash = hash * 31 + _height;
+			hash = hash * 31 + _gridOrigin.X;
+			hash = hash * 31 + _gridOrigin.Y;
+			hash = hash * 31 + CellSize;
+			hash = hash * 31 + _nextFlowFieldID;
+
+			if (_navigationPacket != null)
+			{
+				hash = hash * 31 + _navigationPacket.Length;
+				foreach (byte value in _navigationPacket)
+					hash = hash * 31 + value;
+			}
+
+			var flowFieldIDs = new List<int>(_flowFields.Keys);
+			flowFieldIDs.Sort();
+			hash = hash * 31 + flowFieldIDs.Count;
+			foreach (int flowFieldID in flowFieldIDs)
+			{
+				hash = hash * 31 + flowFieldID;
+				hash = hash * 31 + _flowFields[flowFieldID].GetDeterministicStateHash();
+			}
+
+			return hash;
+		}
+	}
+
 	public float GetTerrainHeight(Vector2 worldPos)
 	{
 		if (_heightMap == null)
@@ -453,6 +528,14 @@ public partial class NavGrid : Node
 			return false;
 		}
 
+		if (GetTree().GetNodesInGroup("units").Count > 0)
+		{
+			GD.PushError(
+				"[NavGrid.RebuildNavData] Navigation cannot change while the lockstep simulation is running."
+			);
+			return false;
+		}
+
 		if (!IsNavReady || !TryGetCellRegion(sectorRegion, out Rect2I cellRegion))
 			return false;
 
@@ -461,9 +544,16 @@ public partial class NavGrid : Node
 		LoadObstacles();
 
 		_flowFields.Clear();
-		_navigationPacket = null;
+		_nextFlowFieldID = 1;
 		BuildSectorPortals();
+		_navigationPacket = BuildNavigationPacket();
 		DrawNavigationState();
+
+		int[] peerIDs = Multiplayer.GetPeers();
+		Array.Sort(peerIDs);
+		foreach (int peerID in peerIDs)
+			SendNavigationData(peerID);
+
 		return true;
 	}
 
@@ -494,7 +584,7 @@ public partial class NavGrid : Node
 
 		for (int i = 0; i < units.Count; i++)
 		{
-			Vector2I unitCell = navGrid.WorldToCell(units[i].GetSimWorldPosition());
+			Vector2I unitCell = navGrid.SimToCell(units[i].SimPosition);
 			unitCells.Add(unitCell);
 			unitOrder.Add(i);
 			assignments.Add(default);
@@ -578,16 +668,32 @@ public partial class NavGrid : Node
 	private void InitNavigation()
 	{
 		if (Multiplayer.IsServer())
+		{
 			BuildHostNavData();
+		}
 		else
 		{
 			BuildHeightMap(); // Visual Y only
-			RpcId(1, nameof(RequestNavData));
+			_waitingForNavigationData = true;
+			RequestNavigationData();
+		}
+	}
+
+	private void RequestNavigationData()
+	{
+		_navigationRequestRetryTimer = NavigationRequestRetryInterval;
+		Error error = RpcId(1, nameof(RequestNavData));
+		if (error != Error.Ok)
+		{
+			GD.PushWarning(
+				$"[NavGrid] Could not request navigation data: {error}. Retrying."
+			);
 		}
 	}
 
 	private void BuildHostNavData()
 	{
+		GD.Print("Building host nav data");
 		_heightMap = new float[_width, _height];
 		_slopeMap = new ushort[_width * _height];
 
@@ -595,9 +701,91 @@ public partial class NavGrid : Node
 		SampleNavDataCells(new Rect2I(Vector2I.Zero, new Vector2I(_width, _height)));
 
 		BuildSectorPortals();
+		_navigationPacket = BuildNavigationPacket();
 		IsNavReady = true;
 		EmitSignal(SignalName.NavigationReady);
 		DrawNavigationState();
+
+		var pendingPeers = new List<int>(_pendingNavPeers);
+		pendingPeers.Sort();
+		foreach (int peerID in pendingPeers)
+			SendNavigationData(peerID);
+
+		_pendingNavPeers.Clear();
+	}
+
+	private byte[] BuildNavigationPacket()
+	{
+		int cellCount = _width * _height;
+		var packet = new byte[(cellCount + 7) / 8];
+
+		for (int x = 0; x < _width; x++)
+		{
+			for (int y = 0; y < _height; y++)
+			{
+				int cellIndex = y * _width + x;
+				if (_cells[x, y].Walkable)
+					packet[cellIndex / 8] |= (byte)(1 << (cellIndex % 8));
+			}
+		}
+
+		return packet;
+	}
+
+	private bool ApplyNavigationPacket(byte[] packet)
+	{
+		int cellCount = _width * _height;
+		int expectedLength = (cellCount + 7) / 8;
+		if (packet == null || packet.Length != expectedLength)
+		{
+			GD.PushError(
+				$"Invalid navigation packet length {packet?.Length ?? 0}; expected {expectedLength}."
+			);
+			return false;
+		}
+
+		_slopeMap = new ushort[_width * _height];
+		for (int x = 0; x < _width; x++)
+		{
+			for (int y = 0; y < _height; y++)
+			{
+				int cellIndex = y * _width + x;
+				bool walkable =
+					(packet[cellIndex / 8] & (1 << (cellIndex % 8))) != 0;
+
+				_cells[x, y].Walkable = walkable;
+				_cells[x, y].SlopeTenths = 0;
+			}
+		}
+
+		_navigationPacket = (byte[])packet.Clone();
+		_flowFields.Clear();
+		_nextFlowFieldID = 1;
+		BuildSectorPortals();
+		IsNavReady = true;
+		EmitSignal(SignalName.NavigationReady);
+		DrawNavigationState();
+		return true;
+	}
+
+	private void SendNavigationData(int peerID)
+	{
+		if (_navigationPacket == null)
+		{
+			GD.Print("Nav packet is null");
+			return;
+		}
+
+		GD.Print(
+			$"HOST: Sending {_navigationPacket.Length} bytes of nav data to player {peerID}"
+		);
+		Error error = RpcId(peerID, nameof(ReceiveNavigationData), _navigationPacket);
+		if (error != Error.Ok)
+		{
+			GD.PushWarning(
+				$"[NavGrid] Could not send navigation data to peer {peerID}: {error}."
+			);
+		}
 	}
 
 	private void SampleNavDataCells(Rect2I cellRegion)
@@ -917,7 +1105,16 @@ public partial class NavGrid : Node
 				representativeStartCellBySector[startSector.Position] = startCellPos;
 		}
 
-		foreach (Vector2I representativeStartCell in representativeStartCellBySector.Values)
+		var representativeStartCells = new List<Vector2I>(representativeStartCellBySector.Values);
+		representativeStartCells.Sort((left, right) =>
+		{
+			int rowComparison = left.Y.CompareTo(right.Y);
+			return rowComparison != 0
+				? rowComparison
+				: left.X.CompareTo(right.X);
+		});
+
+		foreach (Vector2I representativeStartCell in representativeStartCells)
 		{
 			List<NavPortal> sectorPath = FindSectorPortalPath(representativeStartCell, targetCellPos);
 
@@ -957,11 +1154,14 @@ public partial class NavGrid : Node
 		if (startSector.Position == targetSector.Position)
 			return new List<NavPortal>();
 
-		var frontier = new PriorityQueue<NavSector, int>();
+		var frontier = new PriorityQueue<NavSector, (int Cost, int Y, int X)>();
 		var costSoFar = new Dictionary<Vector2I, int>();
 		var cameFromPortal = new Dictionary<Vector2I, NavPortal>();
 
-		frontier.Enqueue(startSector, 0);
+		frontier.Enqueue(
+			startSector,
+			(0, startSector.Position.Y, startSector.Position.X)
+		);
 		costSoFar[startSector.Position] = 0;
 
 		while (frontier.Count > 0)
@@ -986,7 +1186,10 @@ public partial class NavGrid : Node
 
 				costSoFar[nextSector.Position] = newCost;
 				cameFromPortal[nextSector.Position] = portal;
-				frontier.Enqueue(nextSector, newCost);
+				frontier.Enqueue(
+					nextSector,
+					(newCost, nextSector.Position.Y, nextSector.Position.X)
+				);
 			}
 		}
 
@@ -1066,7 +1269,7 @@ public partial class NavGrid : Node
 
 	private bool TryExpandFlowFieldToSector(NavFlowField flowField, NavSector sector)
 	{
-		var frontier = new PriorityQueue<NavCell, int>();
+		var frontier = new PriorityQueue<NavCell, (int Cost, int Y, int X)>();
 		bool hasBoundarySeed = false;
 
 		for (int x = sector.MinCell.X; x <= sector.MaxCell.X; x++)
@@ -1101,7 +1304,10 @@ public partial class NavGrid : Node
 					continue;
 
 				flowField.SetIntegrationCost(cell.Position, bestCost);
-				frontier.Enqueue(cell, bestCost);
+				frontier.Enqueue(
+					cell,
+					(bestCost, cell.Position.Y, cell.Position.X)
+				);
 				hasBoundarySeed = true;
 			}
 		}
@@ -1109,10 +1315,12 @@ public partial class NavGrid : Node
 		if (!hasBoundarySeed)
 			return false;
 
-		while (frontier.TryDequeue(out NavCell currentCell, out int queuedCost))
+		while (frontier.TryDequeue(
+			out NavCell currentCell,
+			out (int Cost, int Y, int X) queuedPriority))
 		{
 			int currentCost = flowField.GetIntegrationCost(currentCell.Position);
-			if (queuedCost != currentCost)
+			if (queuedPriority.Cost != currentCost)
 				continue;
 
 			foreach (NavCell neighbor in GetNeighbors(currentCell.Position))
@@ -1127,7 +1335,10 @@ public partial class NavGrid : Node
 					continue;
 
 				flowField.SetIntegrationCost(neighbor.Position, candidateCost);
-				frontier.Enqueue(neighbor, candidateCost);
+				frontier.Enqueue(
+					neighbor,
+					(candidateCost, neighbor.Position.Y, neighbor.Position.X)
+				);
 			}
 		}
 
@@ -1620,8 +1831,38 @@ public partial class NavGrid : Node
 		return true;
 	}
 
-	[Rpc(MultiplayerApi.RpcMode.AnyPeer)]
+	[Rpc(
+		MultiplayerApi.RpcMode.AnyPeer,
+		TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
 	private void RequestNavData()
 	{
+		if (!Multiplayer.IsServer())
+			return;
+
+		int peerID = Multiplayer.GetRemoteSenderId();
+		if (peerID <= 0)
+			return;
+
+		if (!IsNavReady || _navigationPacket == null)
+		{
+			_pendingNavPeers.Add(peerID);
+			return;
+		}
+
+		SendNavigationData(peerID);
+	}
+
+	[Rpc(
+		MultiplayerApi.RpcMode.AnyPeer,
+		TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+	private void ReceiveNavigationData(byte[] packet)
+	{
+		int senderID = Multiplayer.GetRemoteSenderId();
+		if (Multiplayer.IsServer() || IsNavReady || senderID != 1)
+			return;
+
+		GD.Print($"CLIENT: Received {packet.Length} bytes of nav data");
+		if (ApplyNavigationPacket(packet))
+			_waitingForNavigationData = false;
 	}
 }

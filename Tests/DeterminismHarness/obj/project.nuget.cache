@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "41dQax1Un44=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Andrew\\Desktop\\code\\Godot\\MultiplayerDemo\\Tests\\DeterminismHarness\\DeterminismHarness.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Andrew\\.nuget\\packages\\godotsharp\\4.7.0\\godotsharp.4.7.0.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\godotsharpeditor\\4.7.0\\godotsharpeditor.4.7.0.nupkg.sha512"
+  ],
+  "logs": []
+}
