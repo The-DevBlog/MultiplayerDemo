@@ -56,7 +56,7 @@ public partial class PlayerManager : Node
 	private void AssignPlayer(int peerID)
 	{
 		Player = new Player(peerID);
-		GD.Print($"Player {peerID} conencted");
+		GD.Print($"Player {peerID} connected");
 	}
 
 	[Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true)]
